@@ -190,25 +190,29 @@ function App() {
                 <span className="text-tennis-200 text-xs">{status === 'completed' ? 'Zakończony' : 'W toku'}</span>
               </div>
             </div>
-            {/* Sync indicator */}
-            {syncStatus === 'syncing' && (
-              <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" title="Synchronizacja..." />
-            )}
-            {syncStatus === 'synced' && (
-              <div className="w-2 h-2 bg-green-400 rounded-full" title="Zsynchronizowano" />
-            )}
-            {syncStatus === 'error' && (
-              <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" title="Błąd synchronizacji" />
-            )}
-            <button
-              onClick={() => setShowShare(true)}
-              className="p-3 hover:bg-white/10 active:bg-white/20 rounded-xl transition-all duration-200 active:scale-95"
-              aria-label="Udostępnij"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              {/* End tournament button (mobile) */}
+              {status !== 'completed' && (
+                <button
+                  onClick={() => { if (window.confirm('Zakończyć?')) endTournament(); }}
+                  className="p-3 hover:bg-white/10 active:bg-white/20 rounded-xl transition-all duration-200 active:scale-95"
+                  aria-label="Zakończ turniej"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              )}
+              <button
+                onClick={() => setShowShare(true)}
+                className="p-3 hover:bg-white/10 active:bg-white/20 rounded-xl transition-all duration-200 active:scale-95"
+                aria-label="Udostępnij"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+            </div>
           </header>
 
           {/* Desktop Top Navigation */}

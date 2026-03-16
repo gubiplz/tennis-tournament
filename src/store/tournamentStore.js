@@ -347,8 +347,6 @@ export const useTournamentStore = create(
         const state = get();
         if (!state.id || state.status === 'setup' || state.status === 'dashboard') return;
 
-        set({ syncStatus: 'syncing' });
-
         try {
           const result = await storageService.saveTournament({
             id: state.id,
@@ -366,25 +364,15 @@ export const useTournamentStore = create(
           });
 
           if (result) {
-            set({ syncStatus: 'synced' });
-            // Reset to idle after 3s
-            setTimeout(() => {
-              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-            }, 3000);
+            if (get().syncStatus === 'error') set({ syncStatus: 'idle' });
           } else {
             set({ syncStatus: 'error' });
-            // Auto-retry after 5s
-            setTimeout(() => {
-              get()._syncToSupabase();
-            }, 5000);
+            setTimeout(() => { get()._syncToSupabase(); }, 5000);
           }
         } catch (err) {
           console.error('Supabase sync failed:', err);
           set({ syncStatus: 'error' });
-          // Auto-retry after 5s
-          setTimeout(() => {
-            get()._syncToSupabase();
-          }, 5000);
+          setTimeout(() => { get()._syncToSupabase(); }, 5000);
         }
       }
     }),
