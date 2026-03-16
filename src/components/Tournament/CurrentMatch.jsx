@@ -8,6 +8,18 @@ import { usePlayerMap } from '../../hooks/usePlayerMap';
 import { MAX_SCORE, MIN_SCORE } from '../../constants/tournament';
 import { hapticSuccess, hapticCelebration } from '../../utils/haptics';
 
+// Pre-generate confetti pieces to avoid Math.random() during render
+const CONFETTI_COLORS = ['#22c55e', '#16a34a', '#fbbf24', '#f59e0b', '#3b82f6', '#ef4444'];
+const CONFETTI_PIECES = Array.from({ length: 30 }, (_, i) => ({
+  key: i,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  left: `${(i * 37 + 13) % 100}%`,
+  delay: `${(i * 0.017) % 0.5}s`,
+  duration: `${2 + (i * 0.07) % 2}s`,
+  size: `${8 + (i * 0.27) % 8}px`,
+  borderRadius: i % 2 === 0 ? '50%' : '2px',
+}));
+
 // Confetti component for celebration
 function Confetti({ show }) {
   if (!show) return null;
@@ -17,57 +29,46 @@ function Confetti({ show }) {
     return null;
   }
 
-  const colors = ['#22c55e', '#16a34a', '#fbbf24', '#f59e0b', '#3b82f6', '#ef4444'];
-  const confettiCount = 30;
-
   return (
     <div className="confetti-container" aria-hidden="true">
-      {Array.from({ length: confettiCount }).map((_, i) => {
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        const left = `${Math.random() * 100}%`;
-        const delay = `${Math.random() * 0.5}s`;
-        const duration = `${2 + Math.random() * 2}s`;
-        const size = `${8 + Math.random() * 8}px`;
-
-        return (
-          <div
-            key={i}
-            className="confetti"
-            style={{
-              left,
-              width: size,
-              height: size,
-              background: color,
-              borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-              animationDelay: delay,
-              animationDuration: duration,
-            }}
-          />
-        );
-      })}
+      {CONFETTI_PIECES.map((piece) => (
+        <div
+          key={piece.key}
+          className="confetti"
+          style={{
+            left: piece.left,
+            width: piece.size,
+            height: piece.size,
+            background: piece.color,
+            borderRadius: piece.borderRadius,
+            animationDelay: piece.delay,
+            animationDuration: piece.duration,
+          }}
+        />
+      ))}
     </div>
   );
 }
 
 // Animated score display
 function AnimatedScore({ value, label }) {
-  const [animating, setAnimating] = useState(false);
-  const [prevValue, setPrevValue] = useState(value);
+  const prevRef = useRef(value);
+  const elRef = useRef(null);
 
   useEffect(() => {
-    if (value !== prevValue) {
-      setAnimating(true);
+    if (prevRef.current !== value && elRef.current) {
+      elRef.current.classList.add('animating');
       const timer = setTimeout(() => {
-        setAnimating(false);
-        setPrevValue(value);
+        elRef.current?.classList.remove('animating');
       }, 400);
+      prevRef.current = value;
       return () => clearTimeout(timer);
     }
-  }, [value, prevValue]);
+  }, [value]);
 
   return (
     <div className="flex flex-col items-center">
-      <div className={`score-box ${animating ? 'animating' : ''}`}>
+      <div ref={elRef} className="score-box">
         <span className="relative z-10">{value}</span>
       </div>
       {label && (

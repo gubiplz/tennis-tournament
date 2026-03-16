@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { storageService } from '../../services/storageService';
@@ -90,11 +90,7 @@ export function TournamentList() {
   const [loadingId, setLoadingId] = useState(null);
   const { loadTournamentFromDb } = useTournamentStore();
 
-  useEffect(() => {
-    loadTournaments();
-  }, []);
-
-  const loadTournaments = async () => {
+  const loadTournaments = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -106,7 +102,11 @@ export function TournamentList() {
       console.error('Failed to load tournaments:', err);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadTournaments(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [loadTournaments]);
 
   const handleSelect = async (tournament) => {
     setLoadingId(tournament.id);

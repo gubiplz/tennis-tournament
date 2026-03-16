@@ -26,8 +26,6 @@ export function Schedule({ onPlayerClick }) {
 
   const saveEdit = (score1, score2, sets) => {
     if (editingMatch) {
-      const p1 = playerMap.get(editingMatch.player1Id);
-      const p2 = playerMap.get(editingMatch.player2Id);
       recordScore(editingMatch.id, score1, score2, sets);
       setEditingMatch(null);
     }

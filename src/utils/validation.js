@@ -54,7 +54,8 @@ export function sanitizePlayerName(name) {
   if (typeof name !== 'string') return '';
   return name
     .trim()
-    .replace(/[\x00-\x1F\x7F]/g, '') // remove control characters
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x1f\x7f]/g, '') // remove control characters
     .slice(0, MAX_PLAYER_NAME_LENGTH);
 }
 

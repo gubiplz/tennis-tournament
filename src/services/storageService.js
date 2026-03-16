@@ -60,7 +60,7 @@ export const storageService = {
 
     // If a column doesn't exist (e.g., game_type), retry without it
     if (error && (error.code === '42703' || error.message?.includes('column'))) {
-      const { game_type, ...rowWithout } = row;
+      const { game_type: _game_type, ...rowWithout } = row;
       const result = await supabase
         .from('tournaments')
         .upsert(rowWithout, { onConflict: 'id' });

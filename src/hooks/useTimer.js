@@ -9,11 +9,13 @@ export function useTimer(durationMinutes, enabled) {
   const [seconds, setSeconds] = useState(durationMinutes * 60);
   const [running, setRunning] = useState(false);
 
-  // Reset when duration changes
+  // Reset when duration changes — intentional sync from props
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setSeconds(durationMinutes * 60);
     setRunning(false);
   }, [durationMinutes]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Countdown logic
   useEffect(() => {

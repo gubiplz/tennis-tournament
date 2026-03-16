@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { Modal } from '../UI/Modal';
@@ -18,15 +18,13 @@ function generateCleanShareUrl(id, gameType) {
 export function ShareModal({ isOpen, onClose }) {
   const { id, gameType, name } = useTournamentStore();
 
-  const [shareUrl, setShareUrl] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
+  const shareUrl = useMemo(() => {
     if (isOpen && id) {
-      const url = generateCleanShareUrl(id, gameType);
-      setShareUrl(url);
+      return generateCleanShareUrl(id, gameType);
     }
+    return '';
   }, [isOpen, id, gameType]);
+  const [copied, setCopied] = useState(false);
 
   const copyToClipboard = async () => {
     try {

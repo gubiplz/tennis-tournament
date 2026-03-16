@@ -10,7 +10,7 @@ import { storageService } from '../../services/storageService';
  * - If not found, shows an error in Polish.
  * - On unmount, unsubscribes from Supabase Realtime.
  */
-export function TournamentLoader({ children, type = 'tournament' }) {
+export function TournamentLoader({ children }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const storeId = useTournamentStore((s) => s.id);

@@ -118,7 +118,7 @@ describe('generateRoundRobin', () => {
 
   it('each match has the expected shape', () => {
     const matches = generateRoundRobin(makePlayers(4))
-    matches.forEach((m, i) => {
+    matches.forEach((m) => {
       expect(m).toEqual(
         expect.objectContaining({
           id: expect.any(Number),

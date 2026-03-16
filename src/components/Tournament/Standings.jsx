@@ -32,20 +32,22 @@ function AnimatedNumber({ value, className = '' }) {
 
 // Score value with pop animation on change
 function ScoreValue({ value, className = '' }) {
-  const [changed, setChanged] = useState(false);
   const prevRef = useRef(value);
+  const elRef = useRef(null);
 
   useEffect(() => {
-    if (prevRef.current !== value) {
-      setChanged(true);
-      const timer = setTimeout(() => setChanged(false), 350);
+    if (prevRef.current !== value && elRef.current) {
+      elRef.current.classList.add('score-changed');
+      const timer = setTimeout(() => {
+        elRef.current?.classList.remove('score-changed');
+      }, 350);
       prevRef.current = value;
       return () => clearTimeout(timer);
     }
   }, [value]);
 
   return (
-    <span className={`score-value-transition ${changed ? 'score-changed' : ''} ${className}`}>
+    <span ref={elRef} className={`score-value-transition ${className}`}>
       {value}
     </span>
   );

@@ -10,13 +10,15 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
   const p1Label = player1Name || 'Gracz 1';
   const p2Label = player2Name || 'Gracz 2';
 
-  // Reset when match changes
+  // Reset when match changes — intentional sync from props on matchId change
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setScore1(initialScore1 || 0);
     setScore2(initialScore2 || 0);
     setSets(initialSets || []);
     setShowDetails(false);
   }, [matchId]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSave = () => {
     const setsData = sets.length > 0 ? sets.filter(s => !(s[0] === 0 && s[1] === 0)) : [];
