@@ -43,6 +43,11 @@ function fromDbRow(row) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Realtime subscription state
+// ---------------------------------------------------------------------------
+let _activeChannel = null;
+
 export const storageService = {
   async saveTournament(tournamentState) {
     if (!isSupabaseConfigured() || !tournamentState.id) return null;
@@ -128,5 +133,55 @@ export const storageService = {
       return false;
     }
     return true;
+  },
+
+  /**
+   * Subscribe to realtime changes on a specific tournament row.
+   * Calls `onUpdate(mappedData)` whenever an UPDATE event arrives.
+   * Returns void — use `unsubscribeFromTournament()` to clean up.
+   */
+  subscribeToTournament(tournamentId, onUpdate) {
+    if (!isSupabaseConfigured() || !tournamentId) return;
+
+    // Clean up any previous subscription first
+    this.unsubscribeFromTournament();
+
+    const channelName = `tournament-${tournamentId}`;
+
+    _activeChannel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tournaments',
+          filter: `id=eq.${tournamentId}`
+        },
+        (payload) => {
+          if (payload.new) {
+            const mapped = fromDbRow(payload.new);
+            onUpdate(mapped);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[Realtime] Subscribed to tournament ${tournamentId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`[Realtime] Channel error for tournament ${tournamentId}`);
+        }
+      });
+  },
+
+  /**
+   * Unsubscribe from any active realtime channel.
+   */
+  unsubscribeFromTournament() {
+    if (_activeChannel) {
+      supabase.removeChannel(_activeChannel);
+      _activeChannel = null;
+      console.log('[Realtime] Unsubscribed from tournament channel');
+    }
   }
 };

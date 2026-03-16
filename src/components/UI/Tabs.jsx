@@ -56,6 +56,7 @@ export function Tabs({ tabs, activeTab, onTabChange }) {
       <div
         className="absolute bottom-0 h-[3px] bg-gradient-to-r from-tennis-500 to-tennis-400 rounded-t-full transition-all duration-300 ease-out"
         style={indicatorStyle}
+        aria-hidden="true"
       />
 
       {tabs.map((tab, index) => (
@@ -76,17 +77,18 @@ export function Tabs({ tabs, activeTab, onTabChange }) {
                 ? 'transform scale-110'
                 : 'group-hover:scale-105 group-active:scale-95'
             }`}
+            aria-hidden="true"
           >
             {tab.icon}
           </span>
           <span className={`text-xs font-medium transition-all duration-300 ${
-            activeTab === tab.id ? 'text-tennis-700' : 'text-gray-500'
+            activeTab === tab.id ? 'text-tennis-700' : 'text-gray-600'
           }`}>
             {tab.label}
           </span>
 
           {/* Ripple effect on tap */}
-          <span className="absolute inset-0 overflow-hidden rounded-lg">
+          <span className="absolute inset-0 overflow-hidden rounded-lg" aria-hidden="true">
             <span className="absolute inset-0 bg-tennis-500/10 opacity-0 group-active:opacity-100 transition-opacity duration-150" />
           </span>
         </button>

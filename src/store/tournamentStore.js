@@ -28,8 +28,26 @@ const createInitialState = () => ({
   matches: [],
   currentMatchIndex: 0,
   settings: { ...DEFAULT_SETTINGS },
-  changeLog: []
+  changeLog: [],
+  _realtimeToast: false // true briefly when remote data arrives
 });
+
+// ---------------------------------------------------------------------------
+// Flag to suppress realtime callbacks triggered by our own saves.
+// Set to true just before saving, reset after a short window.
+// ---------------------------------------------------------------------------
+let _ignoringRealtime = false;
+let _ignoreTimer = null;
+
+function markOwnSave() {
+  _ignoringRealtime = true;
+  clearTimeout(_ignoreTimer);
+  // Supabase Realtime typically delivers within ~200-500ms.
+  // We ignore events for 2s after our own save to be safe.
+  _ignoreTimer = setTimeout(() => {
+    _ignoringRealtime = false;
+  }, 2000);
+}
 
 export const useTournamentStore = create(
   persist(
@@ -82,6 +100,9 @@ export const useTournamentStore = create(
             }
           ]
         });
+
+        // Subscribe to realtime for the newly created tournament
+        _subscribeToRealtime(id, set, get);
       },
 
       // Record match score with sets
@@ -166,6 +187,7 @@ export const useTournamentStore = create(
 
       // Reset tournament — go back to dashboard
       resetTournament: () => {
+        storageService.unsubscribeFromTournament();
         set({ ...createInitialState() });
       },
 
@@ -261,11 +283,13 @@ export const useTournamentStore = create(
 
       // Go to dashboard (tournament list)
       goToDashboard: () => {
+        storageService.unsubscribeFromTournament();
         set({ ...createInitialState() });
       },
 
       // Go to setup (new tournament/sparring form)
       goToSetup: (type = 'tournament') => {
+        storageService.unsubscribeFromTournament();
         set({ ...createInitialState(), status: 'setup', gameType: type });
       },
 
@@ -283,6 +307,10 @@ export const useTournamentStore = create(
               }
             }
             set({ ...data, status: resolvedStatus });
+
+            // Subscribe to realtime updates for this tournament
+            _subscribeToRealtime(tournamentId, set, get);
+
             // Sync back if status changed
             if (resolvedStatus !== data.status) {
               get()._syncToSupabase();
@@ -347,6 +375,9 @@ export const useTournamentStore = create(
         const state = get();
         if (!state.id || state.status === 'setup' || state.status === 'dashboard') return;
 
+        // Mark that the next realtime event is from our own save
+        markOwnSave();
+
         try {
           const result = await storageService.saveTournament({
             id: state.id,
@@ -374,7 +405,10 @@ export const useTournamentStore = create(
           set({ syncStatus: 'error' });
           setTimeout(() => { get()._syncToSupabase(); }, 5000);
         }
-      }
+      },
+
+      // Dismiss the realtime toast
+      dismissRealtimeToast: () => set({ _realtimeToast: false })
     }),
     {
       name: 'tennis-tournament-storage',
@@ -387,6 +421,11 @@ export const useTournamentStore = create(
           persistedState.gameType = persistedState.gameType || null;
         }
         return persistedState;
+      },
+      partialize: (state) => {
+        // Exclude transient UI fields from persistence
+        const { _realtimeToast, ...rest } = state;
+        return rest;
       },
       storage: {
         getItem: (name) => {
@@ -428,11 +467,71 @@ export const useTournamentStore = create(
   )
 );
 
+// ---------------------------------------------------------------------------
+// Realtime subscription helper (called from store actions)
+// ---------------------------------------------------------------------------
+function _subscribeToRealtime(tournamentId, set, get) {
+  if (!isSupabaseConfigured()) return;
+
+  storageService.subscribeToTournament(tournamentId, (remoteData) => {
+    // Ignore events triggered by our own saves
+    if (_ignoringRealtime) {
+      return;
+    }
+
+    const local = get();
+
+    // Only apply if the tournament ID matches the currently loaded one
+    if (local.id !== remoteData.id) return;
+
+    // Simple last-write-wins: compare changeLog length as a proxy for
+    // "who has more recent data". If the remote changeLog is longer or
+    // different, we accept it. This is a pragmatic heuristic — the
+    // remote data is coming from Supabase which was written by
+    // another device, so it is authoritative.
+    const remoteLogLen = remoteData.changeLog?.length || 0;
+    const localLogLen = local.changeLog?.length || 0;
+
+    // Also compare the latest changelog entry timestamps when lengths
+    // are equal, to avoid overwriting with stale echoes.
+    if (remoteLogLen === localLogLen) {
+      const remoteLatest = remoteData.changeLog?.[0]?.timestamp;
+      const localLatest = local.changeLog?.[0]?.timestamp;
+      if (remoteLatest && localLatest && remoteLatest <= localLatest) {
+        return; // local is at least as recent
+      }
+    }
+
+    // Apply the remote state (preserve status if dashboard/setup locally)
+    if (local.status === 'dashboard' || local.status === 'setup') return;
+
+    console.log('[Realtime] Applying remote update');
+    set({
+      name: remoteData.name,
+      gameType: remoteData.gameType,
+      location: remoteData.location,
+      date: remoteData.date,
+      status: remoteData.status,
+      players: remoteData.players,
+      matches: remoteData.matches,
+      currentMatchIndex: remoteData.currentMatchIndex,
+      settings: remoteData.settings,
+      changeLog: remoteData.changeLog,
+      _realtimeToast: true
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Auto-sync to Supabase on state changes (debounced)
+// ---------------------------------------------------------------------------
 let syncTimeout = null;
 useTournamentStore.subscribe((state, prevState) => {
-  // Skip sync status changes to avoid infinite loop
-  if (state.syncStatus !== prevState.syncStatus) return;
+  // Skip sync status changes and toast changes to avoid infinite loop
+  if (
+    state.syncStatus !== prevState.syncStatus ||
+    state._realtimeToast !== prevState._realtimeToast
+  ) return;
 
   // Sync when any tournament data changes
   if (

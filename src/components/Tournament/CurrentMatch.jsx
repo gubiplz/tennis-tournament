@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { calculatePlayerStats, calculateStandings, getRestingPlayers } from '../../utils/statistics';
 import { ProgressBar } from '../UI/ProgressBar';
@@ -6,6 +6,7 @@ import { PlayerAvatar } from '../UI/PlayerAvatar';
 import { TennisScoreInput } from '../UI/TennisScoreInput';
 import { usePlayerMap } from '../../hooks/usePlayerMap';
 import { MAX_SCORE, MIN_SCORE } from '../../constants/tournament';
+import { hapticSuccess, hapticCelebration } from '../../utils/haptics';
 
 // Confetti component for celebration
 function Confetti({ show }) {
@@ -20,7 +21,7 @@ function Confetti({ show }) {
   const confettiCount = 30;
 
   return (
-    <div className="confetti-container">
+    <div className="confetti-container" aria-hidden="true">
       {Array.from({ length: confettiCount }).map((_, i) => {
         const color = colors[Math.floor(Math.random() * colors.length)];
         const left = `${Math.random() * 100}%`;
@@ -70,7 +71,7 @@ function AnimatedScore({ value, label }) {
         <span className="relative z-10">{value}</span>
       </div>
       {label && (
-        <span className="mt-2 text-xs font-medium text-gray-500 truncate max-w-[80px]">
+        <span className="mt-2 text-xs font-medium text-gray-600 truncate max-w-[80px]">
           {label}
         </span>
       )}
@@ -89,6 +90,8 @@ export function CurrentMatch({ onPlayerClick }) {
   const [showConfetti, setShowConfetti] = useState(false);
   const [saveAnimation, setSaveAnimation] = useState(false);
   const [undoData, setUndoData] = useState(null);
+  // Track which player won the last saved match for avatar pulse
+  const [winnerPulseId, setWinnerPulseId] = useState(null);
 
   const player1 = playerMap.get(currentMatch?.player1Id);
   const player2 = playerMap.get(currentMatch?.player2Id);
@@ -117,12 +120,28 @@ export function CurrentMatch({ onPlayerClick }) {
     [players, matches, settings]
   );
 
+  // Fire celebration haptic once when tournament completes
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    if (prevStatusRef.current !== 'completed' && status === 'completed') {
+      hapticCelebration();
+    }
+    prevStatusRef.current = status;
+  }, [status]);
+
   // Auto-hide undo toast after 5 seconds
   useEffect(() => {
     if (!undoData) return;
     const timer = setTimeout(() => setUndoData(null), 5000);
     return () => clearTimeout(timer);
   }, [undoData]);
+
+  // Clear winner pulse after animation
+  useEffect(() => {
+    if (!winnerPulseId) return;
+    const timer = setTimeout(() => setWinnerPulseId(null), 700);
+    return () => clearTimeout(timer);
+  }, [winnerPulseId]);
 
   const handleSaveScore = useCallback((score1, score2, sets) => {
     if (!currentMatch) return;
@@ -133,6 +152,16 @@ export function CurrentMatch({ onPlayerClick }) {
     setSaveAnimation(true);
     setShowConfetti(true);
 
+    // Determine winner for avatar pulse
+    if (score1 > score2 && player1) {
+      setWinnerPulseId(player1.id);
+    } else if (score2 > score1 && player2) {
+      setWinnerPulseId(player2.id);
+    }
+
+    // Double haptic buzz for match completion
+    hapticSuccess();
+
     setTimeout(() => {
       recordScore(currentMatch.id, score1, score2, sets);
       setSaveAnimation(false);
@@ -142,7 +171,7 @@ export function CurrentMatch({ onPlayerClick }) {
     setTimeout(() => {
       setShowConfetti(false);
     }, 3000);
-  }, [currentMatch, recordScore]);
+  }, [currentMatch, recordScore, player1, player2]);
 
   const handleUndo = useCallback(() => {
     if (!undoData) return;
@@ -155,8 +184,8 @@ export function CurrentMatch({ onPlayerClick }) {
     if (isSparring && player1 && player2 && stats1 && stats2) {
       const winner = stats1.won > stats2.won ? player1 : stats2.won > stats1.won ? player2 : null;
       return (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
-          <div className="text-5xl mb-4">{'\u{1F3BE}'}</div>
+        <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="polite">
+          <div className="text-5xl mb-4" aria-hidden="true">{'\u{1F3BE}'}</div>
           <h2 className="text-2xl font-extrabold text-gray-900 mb-4">
             Sparring zakończony!
           </h2>
@@ -167,7 +196,7 @@ export function CurrentMatch({ onPlayerClick }) {
             </div>
             <div className="text-center">
               <p className="text-3xl font-extrabold text-gray-900">{stats1.won}:{stats2.won}</p>
-              <p className="text-xs text-gray-400">meczów</p>
+              <p className="text-xs text-gray-600">meczów</p>
             </div>
             <div className="text-center">
               <PlayerAvatar name={player2.name} size="lg" className={winner === player2 ? 'ring-4 ring-tennis-400' : ''} />
@@ -176,43 +205,45 @@ export function CurrentMatch({ onPlayerClick }) {
           </div>
           {winner && <p className="text-tennis-600 font-bold text-lg mb-4">Wygrywa {winner.name}!</p>}
           {!winner && <p className="text-yellow-600 font-bold text-lg mb-4">Remis!</p>}
-        </div>
+        </section>
       );
     }
 
-    // Tournament completed — podium
+    // Tournament completed -- podium with enhanced celebration
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="assertive">
-        <div className="trophy-animation text-6xl mb-4">
-          <span role="img" aria-label="Trophy">&#127942;</span>
+      <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="assertive">
+        <Confetti show={true} />
+        <div className="trophy-entrance text-6xl mb-4" aria-hidden="true">
+          <span>&#127942;</span>
         </div>
         <h2 className="text-2xl font-extrabold text-gray-900 mb-6 tracking-tight">
           Turniej zakończony!
         </h2>
         {standings.length > 0 && (
-          <div className="space-y-3 w-full max-w-xs">
+          <ol className="space-y-3 w-full max-w-xs" aria-label="Podium">
             {standings.slice(0, 3).map((p, i) => (
-              <div
+              <li
                 key={p.playerId}
-                className={`flex items-center gap-3 p-3 rounded-2xl border-2 ${
+                className={`flex items-center gap-3 p-3 rounded-2xl border-2 slide-up ${
                   i === 0 ? 'bg-yellow-50 border-yellow-300' :
                   i === 1 ? 'bg-gray-50 border-gray-300' :
                   'bg-orange-50 border-orange-300'
                 }`}
+                style={{ animationDelay: `${0.15 + i * 0.1}s` }}
               >
-                <span className="text-2xl">{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : '\u{1F949}'}</span>
+                <span className="text-2xl" aria-hidden="true">{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : '\u{1F949}'}</span>
                 <PlayerAvatar name={p.name} size="sm" />
                 <div className="flex-1 text-left">
                   <p className="font-bold text-gray-900">{p.name}</p>
-                  <p className="text-xs text-gray-500">{p.won}W {p.draws > 0 ? `${p.draws}D ` : ''}{p.lost}L</p>
+                  <p className="text-xs text-gray-600">{p.won}W {p.draws > 0 ? `${p.draws}D ` : ''}{p.lost}L</p>
                 </div>
-                <span className="font-extrabold text-lg text-tennis-600">{p.points}pkt</span>
-              </div>
+                <span className="font-extrabold text-lg text-tennis-700">{p.points}pkt</span>
+              </li>
             ))}
-          </div>
+          </ol>
         )}
-        <p className="text-gray-400 text-sm mt-4">Sprawdź pełną tabelę w zakładce "Tabela"</p>
-      </div>
+        <p className="text-gray-600 text-sm mt-4">Sprawdź pełną tabelę w zakładce "Tabela"</p>
+      </section>
     );
   }
 
@@ -221,12 +252,12 @@ export function CurrentMatch({ onPlayerClick }) {
 
   if (sparringMatchDone) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
-        <div className="text-5xl mb-4">{'\u{2705}'}</div>
+      <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="polite">
+        <div className="text-5xl mb-4" aria-hidden="true">{'\u{2705}'}</div>
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
           Wynik zapisany!
         </h2>
-        <p className="text-gray-500 mb-6">
+        <p className="text-gray-600 mb-6">
           {player1?.name} {currentMatch.score1}:{currentMatch.score2} {player2?.name}
         </p>
         <div className="flex items-center gap-6 mb-8">
@@ -247,7 +278,7 @@ export function CurrentMatch({ onPlayerClick }) {
             Zakończ
           </button>
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -255,10 +286,10 @@ export function CurrentMatch({ onPlayerClick }) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
             <span className="text-2xl">&#127934;</span>
           </div>
-          <p className="text-gray-500 font-medium">Brak meczu do wyświetlenia</p>
+          <p className="text-gray-600 font-medium">Brak meczu do wyświetlenia</p>
         </div>
       </div>
     );
@@ -275,14 +306,16 @@ export function CurrentMatch({ onPlayerClick }) {
 
       {/* Match Card */}
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-        <div className={`card-premium mb-4 slide-up ${saveAnimation ? 'celebration-glow' : ''}`}>
+        <section
+          className={`card-premium mb-4 slide-up ${saveAnimation ? 'celebration-glow' : ''}`}
+          aria-label={`Mecz ${currentMatch.id}: ${player1?.name} vs ${player2?.name}`}
+        >
           {/* Match Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-tennis-100 to-tennis-50 rounded-full border border-tennis-200 shadow-sm">
-              <span className="text-tennis-600">&#127934;</span>
+              <span className="text-tennis-600" aria-hidden="true">&#127934;</span>
               <span className="font-bold text-tennis-800">Mecz #{currentMatch.id}</span>
             </div>
-
           </div>
 
           {/* Players */}
@@ -290,51 +323,61 @@ export function CurrentMatch({ onPlayerClick }) {
             {/* Player 1 */}
             <button
               onClick={() => onPlayerClick?.(player1?.id)}
-              className="flex-1 group p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-tennis-200 hover:shadow-lg transition-all duration-300 active:scale-[0.98]"
+              className="flex-1 group p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-tennis-200 hover:shadow-lg transition-all duration-300 active:scale-[0.98] min-h-[44px]"
+              aria-label={`${player1?.name}: ${stats1?.won} wygranych, ${stats1?.lost} przegranych. Kliknij aby zobaczyć profil.`}
             >
-              <PlayerAvatar name={player1?.name} size="md" className="mx-auto mb-3 group-hover:scale-110 group-hover:rotate-6" />
+              <PlayerAvatar
+                name={player1?.name}
+                size="md"
+                className={`mx-auto mb-3 group-hover:scale-110 group-hover:rotate-6 ${winnerPulseId === player1?.id ? 'player-avatar-winner' : ''}`}
+              />
               <div className="font-bold text-lg text-gray-900 mb-1 truncate">
                 {player1?.name}
               </div>
               <div className="flex items-center justify-center gap-1.5 text-sm">
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">
+                <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full font-medium">
                   {stats1?.won}W
                 </span>
                 {stats1?.draws > 0 && (
-                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full font-medium">
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full font-medium">
                     {stats1?.draws}D
                   </span>
                 )}
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">
+                <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full font-medium">
                   {stats1?.lost}L
                 </span>
               </div>
             </button>
 
             {/* VS Badge */}
-            <div className="flex items-center">
+            <div className="flex items-center" aria-hidden="true">
               <div className="vs-badge">VS</div>
             </div>
 
             {/* Player 2 */}
             <button
               onClick={() => onPlayerClick?.(player2?.id)}
-              className="flex-1 group p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-tennis-200 hover:shadow-lg transition-all duration-300 active:scale-[0.98]"
+              className="flex-1 group p-4 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 hover:border-tennis-200 hover:shadow-lg transition-all duration-300 active:scale-[0.98] min-h-[44px]"
+              aria-label={`${player2?.name}: ${stats2?.won} wygranych, ${stats2?.lost} przegranych. Kliknij aby zobaczyć profil.`}
             >
-              <PlayerAvatar name={player2?.name} size="md" className="mx-auto mb-3 group-hover:scale-110 group-hover:-rotate-6" />
+              <PlayerAvatar
+                name={player2?.name}
+                size="md"
+                className={`mx-auto mb-3 group-hover:scale-110 group-hover:-rotate-6 ${winnerPulseId === player2?.id ? 'player-avatar-winner' : ''}`}
+              />
               <div className="font-bold text-lg text-gray-900 mb-1 truncate">
                 {player2?.name}
               </div>
               <div className="flex items-center justify-center gap-1.5 text-sm">
-                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">
+                <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full font-medium">
                   {stats2?.won}W
                 </span>
                 {stats2?.draws > 0 && (
-                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full font-medium">
+                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full font-medium">
                     {stats2?.draws}D
                   </span>
                 )}
-                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">
+                <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full font-medium">
                   {stats2?.lost}L
                 </span>
               </div>
@@ -347,44 +390,47 @@ export function CurrentMatch({ onPlayerClick }) {
               matchId={currentMatch.id}
               initialSets={currentMatch.sets}
               onSave={handleSaveScore}
+              player1Name={player1?.name}
+              player2Name={player2?.name}
             />
           </div>
-        </div>
+        </section>
 
         {/* Resting Players */}
         {restingPlayers.length > 0 && (
-          <div className="card mb-4 slide-up" style={{ animationDelay: '0.1s' }}>
-            <div className="flex items-center gap-2 text-gray-600 mb-3">
-              <span className="text-xl">&#129681;</span>
-              <span className="font-semibold">Odpoczywają</span>
-              <span className="text-sm text-gray-400">({restingPlayers.length})</span>
+          <section className="card mb-4 slide-up" style={{ animationDelay: '0.1s' }} aria-label="Odpoczywający gracze">
+            <div className="flex items-center gap-2 text-gray-700 mb-3">
+              <span className="text-xl" aria-hidden="true">&#129681;</span>
+              <h3 className="font-semibold">Odpoczywają</h3>
+              <span className="text-sm text-gray-600">({restingPlayers.length})</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {restingPlayers.map((player, index) => (
                 <button
                   key={player.id}
                   onClick={() => onPlayerClick?.(player.id)}
-                  className="group px-4 py-2 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-tennis-50 hover:to-tennis-100 rounded-full text-sm font-medium text-gray-700 hover:text-tennis-700 transition-all duration-200 active:scale-95 border border-gray-200 hover:border-tennis-200"
+                  className="group px-4 py-2 min-h-[44px] bg-gradient-to-br from-gray-50 to-gray-100 hover:from-tennis-50 hover:to-tennis-100 rounded-full text-sm font-medium text-gray-700 hover:text-tennis-700 transition-all duration-200 active:scale-95 border border-gray-200 hover:border-tennis-200"
                   style={{ animationDelay: `${0.05 * index}s` }}
+                  aria-label={`${player.name}${player.waitCount > 0 ? `, czeka ${player.waitCount} meczów` : ''}. Kliknij aby zobaczyć profil.`}
                 >
                   {player.name}
                   {player.waitCount > 0 && (
-                    <span className="ml-1.5 px-1.5 py-0.5 bg-gray-200 group-hover:bg-tennis-200 rounded-full text-xs text-gray-500 group-hover:text-tennis-600">
+                    <span className="ml-1.5 px-1.5 py-0.5 bg-gray-200 group-hover:bg-tennis-200 rounded-full text-xs text-gray-600 group-hover:text-tennis-700" aria-hidden="true">
                       {player.waitCount}
                     </span>
                   )}
                 </button>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Next Matches */}
         {nextMatches.length > 0 && (
-          <div className="card slide-up" style={{ animationDelay: '0.2s' }}>
-            <div className="flex items-center gap-2 text-gray-600 mb-3">
-              <span className="text-xl">&#128203;</span>
-              <span className="font-semibold">Następne mecze</span>
+          <section className="card slide-up" style={{ animationDelay: '0.2s' }} aria-label="Następne mecze">
+            <div className="flex items-center gap-2 text-gray-700 mb-3">
+              <span className="text-xl" aria-hidden="true">&#128203;</span>
+              <h3 className="font-semibold">Następne mecze</h3>
             </div>
             <div className="space-y-2">
               {nextMatches.map((match, index) => {
@@ -402,15 +448,15 @@ export function CurrentMatch({ onPlayerClick }) {
                     <span className={`
                       w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold
                       ${index === 0
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-gray-200 text-gray-600'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-200 text-gray-700'
                       }
-                    `}>
+                    `} aria-hidden="true">
                       #{match.id}
                     </span>
                     <div className="flex-1 text-sm">
                       <span className="font-medium text-gray-900">{p1?.name}</span>
-                      <span className="text-gray-400 mx-2">vs</span>
+                      <span className="text-gray-500 mx-2">vs</span>
                       <span className="font-medium text-gray-900">{p2?.name}</span>
                     </div>
                     {index === 0 && (
@@ -420,18 +466,18 @@ export function CurrentMatch({ onPlayerClick }) {
                 );
               })}
             </div>
-          </div>
+          </section>
         )}
       </div>
 
       {/* Undo Toast */}
       {undoData && (
-        <div className="fixed bottom-24 xl:bottom-8 left-1/2 -translate-x-1/2 z-50 slide-up">
+        <div className="fixed bottom-24 xl:bottom-8 left-1/2 -translate-x-1/2 z-50 slide-up" role="status" aria-live="polite">
           <div className="flex items-center gap-3 px-5 py-3 bg-gray-900 text-white rounded-2xl shadow-2xl">
             <span className="text-sm">Wynik zapisany</span>
             <button
               onClick={handleUndo}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-colors"
+              className="px-4 py-2 min-h-[44px] bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-colors"
             >
               Cofnij
             </button>

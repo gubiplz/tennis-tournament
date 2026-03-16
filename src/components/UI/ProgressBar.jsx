@@ -16,7 +16,14 @@ export function ProgressBar({ current, total, showLabel = true }) {
   return (
     <div className="w-full">
       {/* Progress track with premium styling */}
-      <div className="progress-track relative">
+      <div
+        className="progress-track relative"
+        role="progressbar"
+        aria-valuenow={percentage}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`Postęp turnieju: ${current} z ${total} meczów (${percentage}%)`}
+      >
         {/* Animated fill */}
         <div
           className="progress-fill"
@@ -31,6 +38,7 @@ export function ProgressBar({ current, total, showLabel = true }) {
               left: `calc(${animatedPercentage}% - 8px)`,
               background: 'radial-gradient(circle at center, rgba(34, 197, 94, 0.6) 0%, transparent 70%)',
             }}
+            aria-hidden="true"
           />
         )}
       </div>
@@ -39,7 +47,7 @@ export function ProgressBar({ current, total, showLabel = true }) {
         <div className="flex justify-between mt-2 text-xs" role="status" aria-live="polite">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-gray-700">{current}/{total}</span>
-            <span className="text-gray-400">{pluralize(total, 'mecz', 'mecze', 'meczów')}</span>
+            <span className="text-gray-600">{pluralize(total, 'mecz', 'mecze', 'meczów')}</span>
           </div>
 
           <div className="flex items-center gap-1">
@@ -50,7 +58,7 @@ export function ProgressBar({ current, total, showLabel = true }) {
                 transition-all duration-300
                 ${percentage === 100
                   ? 'bg-gradient-to-r from-tennis-500 to-tennis-400 text-white shadow-lg shadow-tennis-500/30'
-                  : 'bg-gray-100 text-gray-600'
+                  : 'bg-gray-100 text-gray-700'
                 }
               `}
             >
@@ -59,7 +67,7 @@ export function ProgressBar({ current, total, showLabel = true }) {
 
             {/* Completion indicator */}
             {percentage === 100 && (
-              <span className="ml-1 animate-bounce">
+              <span className="ml-1 animate-bounce" aria-hidden="true">
                 <svg className="w-4 h-4 text-tennis-500" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
@@ -71,7 +79,7 @@ export function ProgressBar({ current, total, showLabel = true }) {
 
       {/* Milestone markers */}
       {total > 4 && (
-        <div className="relative mt-1 h-1">
+        <div className="relative mt-1 h-1" aria-hidden="true">
           {[25, 50, 75].map((milestone) => (
             <div
               key={milestone}

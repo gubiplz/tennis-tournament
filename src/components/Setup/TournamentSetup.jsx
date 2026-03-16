@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { calculateMatchCount, estimateDuration } from '../../utils/roundRobin';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../../constants/tournament';
@@ -31,7 +32,8 @@ function clearDraft() {
 
 export function TournamentSetup() {
   const store = useTournamentStore();
-  const { startTournament, getDefaultPlayers, goToDashboard } = store;
+  const { startTournament, getDefaultPlayers } = store;
+  const navigate = useNavigate();
 
   const [draft] = useState(() => loadDraft(getDefaultPlayers()));
   const [tournamentName, setTournamentName] = useState(draft.name);
@@ -75,6 +77,9 @@ export function TournamentSetup() {
     setTimeout(() => {
       startTournament(uniquePlayers, tournamentName, tournamentLocation, tournamentDate, 'tournament');
       clearDraft();
+      // After starting, the store has the new tournament id
+      const id = useTournamentStore.getState().id;
+      navigate(`/turniej/${id}`, { replace: true });
     }, 500);
   };
 
@@ -93,7 +98,7 @@ export function TournamentSetup() {
         <div className="lg:w-1/2 xl:w-2/5 lg:sticky lg:top-0 lg:h-screen">
           <div className="relative w-full h-64 sm:h-80 lg:h-full overflow-hidden">
             <img
-              src="./image-turniej.jpeg"
+              src="/image-turniej.jpeg"
               alt="Turniej Tenisowy"
               className="w-full h-full object-cover object-top lg:object-center"
             />
@@ -131,7 +136,7 @@ export function TournamentSetup() {
             {/* Back button */}
             <div className="pt-2 pb-2">
               <button
-                onClick={goToDashboard}
+                onClick={() => navigate('/')}
                 className="flex items-center gap-2 text-white/80 hover:text-white text-sm font-medium transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

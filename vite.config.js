@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [
     react(),
     VitePWA({
@@ -34,6 +34,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        navigateFallback: '/index.html',
+        navigateFallbackAllowlist: [/^(?!\/__).*/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -45,9 +47,37 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24 * 365
               }
             }
+          },
+          {
+            // Supabase REST API calls (NetworkFirst with 5s timeout for offline support)
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api-cache',
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
         ]
       }
     })
-  ]
+  ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-utils': ['pako', 'qrcode.react', 'uuid'],
+          'vendor-sentry': ['@sentry/react'],
+        }
+      }
+    }
+  }
 })

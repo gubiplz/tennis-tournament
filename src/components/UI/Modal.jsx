@@ -85,6 +85,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      role="presentation"
     >
       {/* Premium Backdrop with blur */}
       <div
@@ -114,10 +115,10 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
         aria-labelledby={title ? 'modal-title' : undefined}
       >
         {/* Decorative top gradient */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-tennis-400 via-tennis-500 to-tennis-400" />
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-tennis-400 via-tennis-500 to-tennis-400" aria-hidden="true" />
 
         {/* Pull indicator for mobile */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
+        <div className="sm:hidden flex justify-center pt-3 pb-1" aria-hidden="true">
           <div className="w-10 h-1 bg-gray-300 rounded-full" />
         </div>
 
@@ -132,7 +133,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
             </h2>
             <button
               onClick={onClose}
-              className="p-2 -m-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200 active:scale-95"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 active:scale-95"
               aria-label="Zamknij"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -146,7 +147,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
         {!title && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all duration-200 active:scale-95 z-10"
+            className="absolute top-4 right-4 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all duration-200 active:scale-95 z-10"
             aria-label="Zamknij"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

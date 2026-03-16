@@ -40,7 +40,7 @@
 
   /* Better focus states for accessibility */
   *:focus-visible {
-    outline: 2px solid var(--color-tennis-500);
+    outline: 3px solid var(--color-tennis-500);
     outline-offset: 2px;
   }
 
@@ -317,6 +317,14 @@
     transition: all 0s;
   }
 
+  /* Disabled state for btn-success */
+  .btn-success:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
   /* ============================================
      GLASSMORPHISM CARDS
      ============================================ */
@@ -383,7 +391,7 @@
   }
 
   .input::placeholder {
-    color: #9ca3af;
+    color: #6b7280;
   }
 
   /* ============================================
@@ -392,6 +400,7 @@
   .tab {
     flex: 1;
     padding: 0.875rem 0.5rem;
+    min-height: 56px;
     text-align: center;
     font-weight: 500;
     font-size: 0.8125rem;
@@ -431,11 +440,11 @@
   }
 
   .tab-inactive {
-    color: #9ca3af;
+    color: #4b5563;
   }
 
   .tab-inactive:hover {
-    color: #6b7280;
+    color: #374151;
     background: rgba(0, 0, 0, 0.02);
   }
 
@@ -625,10 +634,17 @@
   .match-card {
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     transform-origin: center;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .match-card:hover {
     transform: scale(1.01);
+  }
+
+  /* Match card press feedback -- subtle scale-down on touch/click with spring-back */
+  .match-card:active {
+    transform: scale(0.97);
+    transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .match-card.current {
@@ -761,6 +777,23 @@
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   }
 
+  /* Player avatar winner pulse glow */
+  .player-avatar-winner {
+    animation: avatar-winner-pulse 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes avatar-winner-pulse {
+    0% {
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    40% {
+      box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.35), 0 0 20px rgba(34, 197, 94, 0.25);
+    }
+    100% {
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+  }
+
   /* ============================================
      FORM INDICATOR
      ============================================ */
@@ -824,7 +857,7 @@
 
   .status-badge.current {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-    color: #92400e;
+    color: #78350f;
     box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
     animation: status-pulse 2s ease-in-out infinite;
   }
@@ -836,7 +869,7 @@
 
   .status-badge.pending {
     background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-    color: #6b7280;
+    color: #4b5563;
   }
 
   @keyframes status-pulse {
@@ -958,7 +991,7 @@
     align-items: center;
     gap: 0.5rem;
     font-size: 0.875rem;
-    color: #6b7280;
+    color: #4b5563;
     transition: transform 0.3s ease;
   }
 
@@ -1021,6 +1054,29 @@
     75% { transform: translateY(-10px) rotate(5deg); }
   }
 
+  /* Trophy entrance -- big celebratory entrance for tournament completion */
+  .trophy-entrance {
+    animation: trophy-entrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  @keyframes trophy-entrance {
+    0% {
+      transform: scale(0) rotate(-30deg);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.2) rotate(5deg);
+      opacity: 1;
+    }
+    80% {
+      transform: scale(0.95) rotate(-2deg);
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
   /* ============================================
      SHINE EFFECT
      ============================================ */
@@ -1046,6 +1102,58 @@
   }
 
   /* ============================================
+     TAB CONTENT TRANSITIONS
+     ============================================ */
+  .tab-content-enter {
+    animation: tab-content-enter 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes tab-content-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* ============================================
+     SCORE COUNTER TRANSITION (Standings)
+     ============================================ */
+  .score-value-transition {
+    display: inline-block;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                color 0.25s ease;
+  }
+
+  .score-value-transition.score-changed {
+    animation: score-value-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes score-value-pop {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.25);
+      color: var(--color-tennis-500);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* ============================================
+     OVERSCROLL BOUNCE (mobile)
+     ============================================ */
+  .overscroll-bounce {
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ============================================
      REDUCED MOTION SUPPORT (components)
      ============================================ */
   @media (prefers-reduced-motion: reduce) {
@@ -1061,6 +1169,12 @@
 
     .trophy-animation {
       animation: none !important;
+    }
+
+    .trophy-entrance {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
     }
 
     .shine::before {
@@ -1089,6 +1203,23 @@
     .btn-secondary:hover,
     .btn-success:hover {
       transform: none !important;
+    }
+
+    .match-card:active {
+      transform: none !important;
+    }
+
+    .player-avatar-winner {
+      animation: none !important;
+    }
+
+    .tab-content-enter {
+      animation: none !important;
+      opacity: 1 !important;
+    }
+
+    .score-value-transition.score-changed {
+      animation: none !important;
     }
   }
 
@@ -1166,6 +1297,22 @@
     }
   }
 
+  /* Realtime toast slide-down animation */
+  .animate-slide-down {
+    animation: slide-down 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slide-down {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -100%);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+
   /* Stagger animation helper */
   .stagger-1 { animation-delay: 0.05s; }
   .stagger-2 { animation-delay: 0.1s; }
@@ -1179,7 +1326,8 @@
   @media (prefers-reduced-motion: reduce) {
     .fade-in,
     .slide-up,
-    .slide-in-right {
+    .slide-in-right,
+    .animate-slide-down {
       animation: none !important;
     }
 
@@ -1223,6 +1371,19 @@
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
+  }
+
+  /* Screen reader only - visually hidden but accessible */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
   }
 
 }

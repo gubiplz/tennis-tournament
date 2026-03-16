@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../../store/tournamentStore';
 
 function getTodayDate() {
@@ -6,7 +7,8 @@ function getTodayDate() {
 }
 
 export function SparringSetup() {
-  const { startTournament, goToDashboard } = useTournamentStore();
+  const { startTournament } = useTournamentStore();
+  const navigate = useNavigate();
 
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
@@ -31,6 +33,9 @@ export function SparringSetup() {
     setIsLoading(true);
     setTimeout(() => {
       startTournament([p1, p2], `${p1} vs ${p2}`, location, date, 'sparring');
+      // After starting, the store has the new tournament id
+      const id = useTournamentStore.getState().id;
+      navigate(`/sparing/${id}`, { replace: true });
     }, 300);
   };
 
@@ -45,7 +50,7 @@ export function SparringSetup() {
       <div className="relative w-full max-w-sm">
         {/* Back */}
         <button
-          onClick={goToDashboard}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-white/80 hover:text-white text-sm font-medium transition-colors mb-4"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
