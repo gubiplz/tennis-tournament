@@ -33,7 +33,7 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
     <div className="space-y-4">
       {/* Main score input */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 text-center">
+        <label className="block text-xs font-semibold text-gray-500 mb-2 text-center">
           Wynik w setach
         </label>
         <div className="flex items-center justify-center gap-4">
@@ -47,12 +47,12 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
               setScore1(raw === '' ? 0 : parseInt(raw));
             }}
             className={`w-20 h-16 text-center text-3xl font-extrabold rounded-2xl border-3 transition-all
-              ${score1 > score2 && hasScore ? 'border-tennis-400 bg-tennis-50 text-tennis-700 dark:bg-tennis-900/30 dark:text-tennis-400' :
-                isDraw ? 'border-yellow-400 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                'border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'}
+              ${score1 > score2 && hasScore ? 'border-tennis-400 bg-tennis-50 text-tennis-700' :
+                isDraw ? 'border-yellow-400 bg-yellow-50 text-yellow-700' :
+                'border-gray-200'}
               focus:border-tennis-500 focus:ring-2 focus:ring-tennis-500/20`}
           />
-          <span className="text-3xl font-bold text-gray-300 dark:text-gray-600">:</span>
+          <span className="text-3xl font-bold text-gray-300">:</span>
           <input
             type="text"
             inputMode="numeric"
@@ -63,14 +63,14 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
               setScore2(raw === '' ? 0 : parseInt(raw));
             }}
             className={`w-20 h-16 text-center text-3xl font-extrabold rounded-2xl border-3 transition-all
-              ${score2 > score1 && hasScore ? 'border-tennis-400 bg-tennis-50 text-tennis-700 dark:bg-tennis-900/30 dark:text-tennis-400' :
-                isDraw ? 'border-yellow-400 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                'border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'}
+              ${score2 > score1 && hasScore ? 'border-tennis-400 bg-tennis-50 text-tennis-700' :
+                isDraw ? 'border-yellow-400 bg-yellow-50 text-yellow-700' :
+                'border-gray-200'}
               focus:border-tennis-500 focus:ring-2 focus:ring-tennis-500/20`}
           />
         </div>
         {isDraw && (
-          <p className="text-center text-sm text-yellow-600 dark:text-yellow-400 mt-2 font-medium">
+          <p className="text-center text-sm text-yellow-600 mt-2 font-medium">
             Remis
           </p>
         )}
@@ -83,7 +83,7 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
             setShowDetails(!showDetails);
             if (!showDetails && sets.length === 0) addSet();
           }}
-          className="w-full py-2 text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-xl transition-colors flex items-center justify-center gap-1"
+          className="w-full py-2 text-xs font-medium text-gray-400 hover:text-gray-600 rounded-xl transition-colors flex items-center justify-center gap-1"
         >
           <svg className={`w-3 h-3 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -105,7 +105,7 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
                     const raw = e.target.value.replace(/\D/g, '');
                     updateSet(i, 0, raw === '' ? 0 : parseInt(raw));
                   }}
-                  className="w-12 h-10 text-center text-sm font-bold rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 focus:border-tennis-500 transition-all"
+                  className="w-12 h-10 text-center text-sm font-bold rounded-lg border border-gray-200 focus:border-tennis-500 transition-all"
                 />
                 <span className="text-gray-300 text-sm">:</span>
                 <input
@@ -117,7 +117,7 @@ export function TennisScoreInput({ matchId, onSave, onCancel, initialScore1, ini
                     const raw = e.target.value.replace(/\D/g, '');
                     updateSet(i, 1, raw === '' ? 0 : parseInt(raw));
                   }}
-                  className="w-12 h-10 text-center text-sm font-bold rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 focus:border-tennis-500 transition-all"
+                  className="w-12 h-10 text-center text-sm font-bold rounded-lg border border-gray-200 focus:border-tennis-500 transition-all"
                 />
                 <button onClick={() => removeSet(i)} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 rounded transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

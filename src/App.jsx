@@ -55,9 +55,7 @@ function App() {
   };
 
   const handleGoToDashboard = () => {
-    if (window.confirm('Czy na pewno chcesz wyjść z turnieju?')) {
-      goToDashboard();
-    }
+    goToDashboard();
   };
 
   const handleTabChange = (tabId) => {
@@ -81,7 +79,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col safe-top safe-bottom">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex flex-col safe-bottom">
       {/* Skip to content link */}
       <a
         href="#main-content"

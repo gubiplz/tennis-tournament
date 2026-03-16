@@ -78,7 +78,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
     <Modal isOpen={isOpen} onClose={onClose} title="" size="lg">
       <div className="space-y-6">
         {/* Header */}
-        <div className="text-center pb-6 border-b border-gray-100 dark:border-gray-700 fade-in">
+        <div className="text-center pb-6 border-b border-gray-100 fade-in">
           {/* Avatar */}
           <div className="relative inline-block mb-4">
             <PlayerAvatar name={player.name} size="xl" />
@@ -173,7 +173,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
         )}
 
         {/* Head to Head Section */}
-        <div className="border-t border-gray-100 dark:border-gray-700 pt-6 slide-up" style={{ animationDelay: '0.35s' }}>
+        <div className="border-t border-gray-100 pt-6 slide-up" style={{ animationDelay: '0.35s' }}>
           <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
             <span className="w-8 h-8 bg-tennis-100 rounded-lg flex items-center justify-center">
               <span role="img" aria-label="Swords">&#9876;&#65039;</span>
@@ -189,7 +189,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
                   p-4 rounded-2xl border transition-all duration-200
                   ${h2h.played
                     ? 'bg-white border-gray-200 hover:border-tennis-200 hover:shadow-md'
-                    : 'bg-gray-50/50 border-gray-100 dark:border-gray-700'
+                    : 'bg-gray-50/50 border-gray-100'
                   }
                   slide-up
                 `}
@@ -254,7 +254,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
 
         {/* Remaining Matches */}
         {remainingMatches.length > 0 && (
-          <div className="border-t border-gray-100 dark:border-gray-700 pt-6 slide-up" style={{ animationDelay: '0.6s' }}>
+          <div className="border-t border-gray-100 pt-6 slide-up" style={{ animationDelay: '0.6s' }}>
             <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
               <span className="w-8 h-8 bg-tennis-100 rounded-lg flex items-center justify-center">
                 <span role="img" aria-label="Calendar">&#128197;</span>
@@ -267,7 +267,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
               {remainingMatches.map((match, index) => (
                 <div
                   key={match.matchId}
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 dark:border-gray-700 slide-up"
+                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 slide-up"
                   style={{ animationDelay: `${0.65 + index * 0.05}s` }}
                 >
                   <span className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-bold text-gray-600">

@@ -190,8 +190,8 @@ export function Schedule({ onPlayerClick }) {
                                   key={si}
                                   className={`px-1.5 py-0.5 rounded text-xs font-bold ${
                                     s[0] > s[1]
-                                      ? 'bg-tennis-100 text-tennis-700 dark:bg-tennis-900/30 dark:text-tennis-400'
-                                      : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                                      ? 'bg-tennis-100 text-tennis-700'
+                                      : 'bg-red-50 text-red-600'
                                   }`}
                                 >
                                   {s[0]}:{s[1]}

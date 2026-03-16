@@ -79,7 +79,7 @@ export function ChangeLog() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gradient-to-b from-gray-50 to-white">
       {/* Tournament Info */}
       <div className="card-premium mb-4 fade-in">
         <div className="flex items-start justify-between mb-4">

@@ -99,7 +99,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
         tabIndex={-1}
         className={`
           relative w-full ${sizeClasses[size]}
-          bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl
+          bg-white/95 backdrop-blur-xl
           rounded-t-3xl sm:rounded-3xl
           max-h-[90vh] overflow-hidden flex flex-col
           shadow-2xl
@@ -123,10 +123,10 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
 
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2
               id="modal-title"
-              className="text-xl font-bold text-gray-900 dark:text-gray-100 tracking-tight"
+              className="text-xl font-bold text-gray-900 tracking-tight"
             >
               {title}
             </h2>

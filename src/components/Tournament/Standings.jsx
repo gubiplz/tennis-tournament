@@ -76,11 +76,11 @@ function RankBadge({ rank, isCompleted, size = 'normal' }) {
 // Mobile card component for each player
 function PlayerCard({ player, rank, isCompleted, onClick, animationDelay }) {
   const getCardStyle = () => {
-    if (!isCompleted) return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
-    if (rank === 1) return 'bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700 shadow-lg shadow-yellow-100 dark:shadow-yellow-900/30';
-    if (rank === 2) return 'bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 border-gray-300 dark:border-gray-600';
-    if (rank === 3) return 'bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/20 border-orange-300 dark:border-orange-700';
-    return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+    if (!isCompleted) return 'bg-white border-gray-200';
+    if (rank === 1) return 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300 shadow-lg shadow-yellow-100';
+    if (rank === 2) return 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-300';
+    if (rank === 3) return 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300';
+    return 'bg-white border-gray-200';
   };
 
   return (
@@ -98,7 +98,7 @@ function PlayerCard({ player, rank, isCompleted, onClick, animationDelay }) {
         <div className="flex items-center gap-3">
           <RankBadge rank={rank} isCompleted={isCompleted} size="large" />
           <div>
-            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">{player.name}</h3>
+            <h3 className="font-bold text-gray-900 text-lg">{player.name}</h3>
             <span className="text-sm text-gray-500">{player.played} {pluralize(player.played, 'mecz', 'mecze', 'meczów')}</span>
           </div>
         </div>

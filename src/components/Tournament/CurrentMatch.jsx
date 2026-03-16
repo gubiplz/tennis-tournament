@@ -157,21 +157,21 @@ export function CurrentMatch({ onPlayerClick }) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
           <div className="text-5xl mb-4">{'\u{1F3BE}'}</div>
-          <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-4">
             Sparring zakończony!
           </h2>
           <div className="flex items-center gap-6 mb-4">
             <div className="text-center">
               <PlayerAvatar name={player1.name} size="lg" className={winner === player1 ? 'ring-4 ring-tennis-400' : ''} />
-              <p className="font-bold mt-2 text-gray-900 dark:text-gray-100">{player1.name}</p>
+              <p className="font-bold mt-2 text-gray-900">{player1.name}</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">{stats1.won}:{stats2.won}</p>
+              <p className="text-3xl font-extrabold text-gray-900">{stats1.won}:{stats2.won}</p>
               <p className="text-xs text-gray-400">meczów</p>
             </div>
             <div className="text-center">
               <PlayerAvatar name={player2.name} size="lg" className={winner === player2 ? 'ring-4 ring-tennis-400' : ''} />
-              <p className="font-bold mt-2 text-gray-900 dark:text-gray-100">{player2.name}</p>
+              <p className="font-bold mt-2 text-gray-900">{player2.name}</p>
             </div>
           </div>
           {winner && <p className="text-tennis-600 font-bold text-lg mb-4">Wygrywa {winner.name}!</p>}
@@ -186,7 +186,7 @@ export function CurrentMatch({ onPlayerClick }) {
         <div className="trophy-animation text-6xl mb-4">
           <span role="img" aria-label="Trophy">&#127942;</span>
         </div>
-        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 tracking-tight">
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-6 tracking-tight">
           Turniej zakończony!
         </h2>
         {standings.length > 0 && (
@@ -195,15 +195,15 @@ export function CurrentMatch({ onPlayerClick }) {
               <div
                 key={p.playerId}
                 className={`flex items-center gap-3 p-3 rounded-2xl border-2 ${
-                  i === 0 ? 'bg-yellow-50 border-yellow-300 dark:bg-yellow-900/20 dark:border-yellow-700' :
-                  i === 1 ? 'bg-gray-50 border-gray-300 dark:bg-gray-800 dark:border-gray-600' :
-                  'bg-orange-50 border-orange-300 dark:bg-orange-900/20 dark:border-orange-700'
+                  i === 0 ? 'bg-yellow-50 border-yellow-300' :
+                  i === 1 ? 'bg-gray-50 border-gray-300' :
+                  'bg-orange-50 border-orange-300'
                 }`}
               >
                 <span className="text-2xl">{i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : '\u{1F949}'}</span>
                 <PlayerAvatar name={p.name} size="sm" />
                 <div className="flex-1 text-left">
-                  <p className="font-bold text-gray-900 dark:text-gray-100">{p.name}</p>
+                  <p className="font-bold text-gray-900">{p.name}</p>
                   <p className="text-xs text-gray-500">{p.won}W {p.draws > 0 ? `${p.draws}D ` : ''}{p.lost}L</p>
                 </div>
                 <span className="font-extrabold text-lg text-tennis-600">{p.points}pkt</span>
@@ -223,7 +223,7 @@ export function CurrentMatch({ onPlayerClick }) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in">
         <div className="text-5xl mb-4">{'\u{2705}'}</div>
-        <h2 className="text-2xl font-extrabold text-gray-900 dark:text-gray-100 mb-2">
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
           Wynik zapisany!
         </h2>
         <p className="text-gray-500 mb-6">
@@ -265,7 +265,7 @@ export function CurrentMatch({ onPlayerClick }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+    <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Confetti show={showConfetti} />
 
       {/* Progress Section */}
