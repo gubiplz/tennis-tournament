@@ -79,7 +79,7 @@ function AnimatedScore({ value, label }) {
 }
 
 export function CurrentMatch({ onPlayerClick }) {
-  const { matches, players, currentMatchIndex, settings, recordScore, status, gameType, addSparringMatch, endSparring } = useTournamentStore();
+  const { matches, players, currentMatchIndex, settings, recordScore, status, gameType, addSparringMatch, endTournament } = useTournamentStore();
   const isSparring = gameType === 'sparring';
 
   const currentMatch = matches[currentMatchIndex];
@@ -243,7 +243,7 @@ export function CurrentMatch({ onPlayerClick }) {
           <button onClick={addSparringMatch} className="btn-success flex-1">
             Następny mecz
           </button>
-          <button onClick={endSparring} className="btn-secondary flex-1">
+          <button onClick={endTournament} className="btn-secondary flex-1">
             Zakończ
           </button>
         </div>

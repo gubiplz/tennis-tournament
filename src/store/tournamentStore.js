@@ -274,11 +274,19 @@ export const useTournamentStore = create(
         try {
           const data = await storageService.loadTournament(tournamentId);
           if (data) {
-            set({
-              ...data,
-              // Ensure status is never 'dashboard' or 'setup' for loaded tournaments
-              status: data.status === 'setup' ? 'active' : data.status
-            });
+            // Auto-expire: if active and older than 24h, mark as completed
+            let resolvedStatus = data.status === 'setup' ? 'active' : data.status;
+            if (resolvedStatus === 'active' && data.createdAt) {
+              const age = Date.now() - new Date(data.createdAt).getTime();
+              if (age > 24 * 60 * 60 * 1000) {
+                resolvedStatus = 'completed';
+              }
+            }
+            set({ ...data, status: resolvedStatus });
+            // Sync back if status changed
+            if (resolvedStatus !== data.status) {
+              get()._syncToSupabase();
+            }
             return true;
           }
         } catch (err) {
@@ -312,14 +320,16 @@ export const useTournamentStore = create(
         });
       },
 
-      // End sparring manually
-      endSparring: () => {
+      // End tournament/sparring manually
+      endTournament: () => {
         const state = get();
+        if (state.status === 'completed') return;
         const timestamp = new Date().toISOString();
+        const label = state.gameType === 'sparring' ? 'Sparring' : 'Turniej';
         set({
           status: 'completed',
           changeLog: [
-            { id: uuidv4(), timestamp, action: 'SCORE', details: 'Sparring zakończony' },
+            { id: uuidv4(), timestamp, action: 'SCORE', details: `${label} zakończony` },
             ...state.changeLog
           ]
         });

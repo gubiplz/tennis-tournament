@@ -26,7 +26,7 @@ const DUEL_TABS = [
 ];
 
 function App() {
-  const { status, importState, resetTournament, goToDashboard, name, location, date, createdAt, players, gameType, syncStatus } = useTournamentStore();
+  const { status, importState, resetTournament, goToDashboard, name, location, date, createdAt, players, gameType, syncStatus, endTournament } = useTournamentStore();
   const isSparring = gameType === 'sparring';
   const TABS = isSparring ? DUEL_TABS : ALL_TABS;
 
@@ -124,7 +124,7 @@ function App() {
                 <div className="text-tennis-200 text-sm mb-1">Status</div>
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  <span className="text-white font-medium">Turniej w toku</span>
+                  <span className="text-white font-medium">{status === 'completed' ? 'Zakończony' : 'W toku'}</span>
                 </div>
               </div>
 
@@ -147,6 +147,17 @@ function App() {
                 </svg>
                 <span>Udostępnij turniej</span>
               </button>
+              {status !== 'completed' && (
+                <button
+                  onClick={() => { if (window.confirm('Zakończyć turniej?')) endTournament(); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 rounded-xl text-yellow-300 hover:text-white transition-all duration-200"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Zakończ turniej</span>
+                </button>
+              )}
               <button
                 onClick={handleGoToDashboard}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/10 rounded-xl text-tennis-300 hover:text-white transition-all duration-200"
@@ -176,7 +187,7 @@ function App() {
               </button>
               <div>
                 <h1 className="font-bold text-lg truncate max-w-[180px] leading-tight">{name}</h1>
-                <span className="text-tennis-200 text-xs">Turniej w toku</span>
+                <span className="text-tennis-200 text-xs">{status === 'completed' ? 'Zakończony' : 'W toku'}</span>
               </div>
             </div>
             {/* Sync indicator */}
