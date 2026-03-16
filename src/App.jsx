@@ -162,8 +162,8 @@ function App() {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Mobile/Tablet Header */}
-          <header className="xl:hidden header-premium relative text-white px-4 py-4 flex items-center justify-between safe-top">
+          {/* Mobile/Tablet Header — sticky */}
+          <header className="xl:hidden header-premium sticky top-0 z-30 text-white px-4 py-3 flex items-center justify-between safe-top">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleGoToDashboard}
@@ -232,7 +232,7 @@ function App() {
             id="main-content"
             role="tabpanel"
             aria-labelledby={`tab-${activeTab} desktop-tab-${activeTab}`}
-            className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-150 ${tabTransition ? 'opacity-0' : 'opacity-100'}`}
+            className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-150 pb-16 xl:pb-0 ${tabTransition ? 'opacity-0' : 'opacity-100'}`}
           >
             <ContentErrorBoundary>
               {activeTab === 'match' && (
@@ -250,8 +250,8 @@ function App() {
             </ContentErrorBoundary>
           </main>
 
-          {/* Bottom Navigation - Mobile only */}
-          <nav className="xl:hidden bg-white/80 backdrop-blur-lg border-t border-gray-200/50 safe-bottom shadow-lg shadow-black/5">
+          {/* Bottom Navigation - Mobile only — fixed */}
+          <nav className="xl:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 safe-bottom shadow-lg shadow-black/5">
             <Tabs tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
           </nav>
         </div>
