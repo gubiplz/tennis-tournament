@@ -163,7 +163,7 @@ function App() {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Mobile/Tablet Header — sticky */}
-          <header className="xl:hidden header-premium sticky top-0 z-30 text-white px-4 py-3 flex items-center justify-between safe-top">
+          <header className="xl:hidden header-premium sticky top-0 z-30 text-white px-4 py-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleGoToDashboard}
