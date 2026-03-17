@@ -206,6 +206,34 @@ export function CurrentMatch({ onPlayerClick }) {
           </div>
           {winner && <p className="text-tennis-600 font-bold text-lg mb-4">Wygrywa {winner.name}!</p>}
           {!winner && <p className="text-yellow-600 font-bold text-lg mb-4">Remis!</p>}
+
+          {/* Lista meczów z detalami setów */}
+          {matches.filter(m => m.completed).length > 0 && (
+            <div className="w-full max-w-xs mt-2">
+              <h3 className="text-xs text-gray-600 uppercase tracking-wider mb-2 font-semibold">Wyniki meczów</h3>
+              <div className="space-y-2">
+                {matches.filter(m => m.completed).map((match, idx) => {
+                  return (
+                    <div key={match.id} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl text-sm">
+                      <span className="text-gray-400 text-xs w-5 shrink-0">#{idx + 1}</span>
+                      <span className={`flex-1 text-right ${match.score1 > match.score2 ? 'font-bold text-tennis-700' : 'text-gray-600'}`}>
+                        {player1?.name}
+                      </span>
+                      <span className="font-mono font-bold text-gray-900 px-1">
+                        {match.sets?.length > 0
+                          ? match.sets.map(s => `${s[0]}:${s[1]}`).join(', ')
+                          : `${match.score1}:${match.score2}`
+                        }
+                      </span>
+                      <span className={`flex-1 text-left ${match.score2 > match.score1 ? 'font-bold text-tennis-700' : 'text-gray-600'}`}>
+                        {player2?.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
       );
     }
@@ -258,9 +286,14 @@ export function CurrentMatch({ onPlayerClick }) {
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
           Wynik zapisany!
         </h2>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 mb-2">
           {player1?.name} {currentMatch.score1}:{currentMatch.score2} {player2?.name}
         </p>
+        {currentMatch.sets?.length > 0 && (
+          <p className="text-sm font-mono text-gray-500 mb-4">
+            ({currentMatch.sets.map(s => `${s[0]}:${s[1]}`).join(', ')})
+          </p>
+        )}
         <div className="flex items-center gap-6 mb-8">
           <div className="text-center">
             <PlayerAvatar name={player1?.name} size="md" />

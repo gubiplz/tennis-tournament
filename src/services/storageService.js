@@ -113,6 +113,8 @@ export const storageService = {
         gameType: row.game_type || 'tournament',
         createdAt: row.created_at,
         playerCount: row.players?.length || 0,
+        players: row.players || [],
+        matches: row.matches || [],
         location: row.location || '',
         date: row.date || ''
       })),

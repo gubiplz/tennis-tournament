@@ -1,7 +1,93 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { storageService } from '../../services/storageService';
+
+function PlayerStatsSection({ tournaments }) {
+  const stats = useMemo(() => {
+    const playerMap = new Map();
+
+    for (const t of tournaments) {
+      if (!t.players || !t.matches) continue;
+      const pMap = new Map(t.players.map(p => [p.id, p.name]));
+
+      for (const m of t.matches) {
+        if (!m.completed) continue;
+
+        const p1Name = pMap.get(m.player1Id);
+        const p2Name = pMap.get(m.player2Id);
+        if (!p1Name || !p2Name) continue;
+
+        for (const [name, isP1] of [[p1Name, true], [p2Name, false]]) {
+          if (!playerMap.has(name)) {
+            playerMap.set(name, { name, played: 0, won: 0, lost: 0, lastPlayed: null });
+          }
+          const s = playerMap.get(name);
+          s.played++;
+          const myScore = isP1 ? m.score1 : m.score2;
+          const opScore = isP1 ? m.score2 : m.score1;
+          if (myScore > opScore) s.won++;
+          else if (opScore > myScore) s.lost++;
+
+          const matchDate = m.completedAt || t.createdAt;
+          if (matchDate && (!s.lastPlayed || matchDate > s.lastPlayed)) {
+            s.lastPlayed = matchDate;
+          }
+        }
+      }
+    }
+
+    return Array.from(playerMap.values())
+      .sort((a, b) => b.played - a.played)
+      .slice(0, 10);
+  }, [tournaments]);
+
+  if (stats.length === 0) return null;
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Dziś';
+    if (diffDays === 1) return 'Wczoraj';
+    if (diffDays < 7) return `${diffDays} dni temu`;
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  };
+
+  return (
+    <section className="mb-6" aria-label="Statystyki graczy">
+      <h2 className="text-tennis-200 text-sm font-semibold uppercase tracking-wider mb-3 px-1">
+        Statystyki graczy
+      </h2>
+      <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 overflow-hidden">
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
+          <span>Gracz</span>
+          <span className="text-center">Mecze</span>
+          <span className="text-center">W-L</span>
+          <span className="text-right">Ostatnio</span>
+        </div>
+        {stats.map((p, i) => (
+          <div
+            key={p.name}
+            className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 items-center ${
+              i < stats.length - 1 ? 'border-b border-white/5' : ''
+            }`}
+          >
+            <span className="text-white font-medium text-sm truncate">{p.name}</span>
+            <span className="text-white text-sm text-center font-bold">{p.played}</span>
+            <span className="text-sm text-center">
+              <span className="text-green-300">{p.won}</span>
+              <span className="text-white/40">-</span>
+              <span className="text-red-300">{p.lost}</span>
+            </span>
+            <span className="text-tennis-200 text-xs text-right whitespace-nowrap">{formatDate(p.lastPlayed)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function TournamentCard({ tournament, onSelect, isLoading }) {
   const isActive = tournament.status === 'active';
@@ -164,6 +250,11 @@ export function TournamentList() {
             <div className="text-tennis-200 text-xs mt-0.5">3+ graczy, round-robin</div>
           </button>
         </div>
+
+        {/* Player stats */}
+        {!loading && tournaments.length > 0 && (
+          <PlayerStatsSection tournaments={tournaments} />
+        )}
 
         {/* Loading -- skeleton cards */}
         {loading && (
