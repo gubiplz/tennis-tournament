@@ -3,15 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { storageService } from '../../services/storageService';
 
-// Guard import of elo.js — may not exist yet or may fail
-let calculateEloRankings = null;
-try {
-  const eloModule = await import('../../utils/elo.js');
-  calculateEloRankings = eloModule.calculateEloRankings;
-} catch {
-  // elo.js not available — EloRankingSection won't render
-}
-
 const POLISH_MONTHS = [
   'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
   'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'
@@ -179,7 +170,7 @@ function MonthlyStatsSection({ tournaments }) {
         {/* Player table */}
         {stats.length > 0 && (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
+            <div className="grid grid-cols-[1fr_50px_70px] gap-x-2 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
               <span>Gracz</span>
               <span className="text-center">Mecze</span>
               <span className="text-center">W-L</span>
@@ -187,7 +178,7 @@ function MonthlyStatsSection({ tournaments }) {
             {stats.map((p, i) => (
               <div
                 key={p.name}
-                className={`grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2.5 items-center ${
+                className={`grid grid-cols-[1fr_50px_70px] gap-x-2 px-4 py-2.5 items-center ${
                   i < stats.length - 1 ? 'border-b border-white/5' : ''
                 }`}
               >
@@ -202,71 +193,6 @@ function MonthlyStatsSection({ tournaments }) {
             ))}
           </>
         )}
-      </div>
-    </section>
-  );
-}
-
-// ----------- EloRankingSection -----------
-
-function EloRankingSection({ tournaments }) {
-  const rankings = useMemo(() => {
-    if (!calculateEloRankings) return [];
-    try {
-      return calculateEloRankings(tournaments);
-    } catch {
-      return [];
-    }
-  }, [tournaments]);
-
-  // Only show if 2+ players have ratings
-  if (rankings.length < 2) return null;
-
-  const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}']; // gold, silver, bronze
-
-  return (
-    <section className="mb-6" aria-label="Ranking Elo">
-      <h2 className="text-tennis-200 text-sm font-semibold uppercase tracking-wider mb-3 px-1">
-        Ranking Elo
-      </h2>
-      <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-3 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
-          <span className="text-center w-8">#</span>
-          <span>Gracz</span>
-          <span className="text-center">Elo</span>
-          <span className="text-center">Zmiana</span>
-        </div>
-        {rankings.map((p, i) => (
-          <div
-            key={p.name}
-            className={`grid grid-cols-[auto_1fr_auto_auto] gap-x-3 px-4 py-2.5 items-center ${
-              i < rankings.length - 1 ? 'border-b border-white/5' : ''
-            }`}
-          >
-            <span className="text-center w-8 text-sm" aria-label={`Pozycja ${i + 1}`}>
-              {i < 3 ? (
-                <span aria-hidden="true">{medals[i]}</span>
-              ) : (
-                <span className="text-white/60 font-bold">{i + 1}</span>
-              )}
-            </span>
-            <span className="text-white font-medium text-sm truncate">{p.name}</span>
-            <span className="text-white text-sm text-center font-bold">{p.elo}</span>
-            <span className={`text-xs text-center font-semibold whitespace-nowrap ${
-              p.change > 0 ? 'text-green-300' : p.change < 0 ? 'text-red-300' : 'text-white/40'
-            }`}>
-              {p.change > 0 && (
-                <>{'\u2191'}+{p.change}</>
-              )}
-              {p.change < 0 && (
-                <>{'\u2193'}{p.change}</>
-              )}
-              {p.change === 0 && (
-                <span>-</span>
-              )}
-            </span>
-          </div>
-        ))}
       </div>
     </section>
   );
@@ -441,11 +367,6 @@ export function TournamentList() {
         {/* Monthly stats */}
         {!loading && tournaments.length > 0 && (
           <MonthlyStatsSection tournaments={tournaments} />
-        )}
-
-        {/* Elo ranking */}
-        {!loading && tournaments.length > 0 && (
-          <EloRankingSection tournaments={tournaments} />
         )}
 
         {/* Loading -- skeleton cards */}

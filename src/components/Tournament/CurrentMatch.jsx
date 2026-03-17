@@ -148,33 +148,25 @@ function H2HSection({ player1Name, player2Name, compact }) {
   }
 
   return (
-    <div className="w-full max-w-xs mt-6">
-      <h3 className="text-xs text-gray-600 uppercase tracking-wider mb-2 font-semibold">Bilans wszechczasów</h3>
-      <div className="p-4 bg-gradient-to-r from-tennis-50 to-tennis-100 rounded-2xl border border-tennis-200">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <div className="text-center">
-            <p className="font-bold text-sm text-gray-900">{player1Name}</p>
-            <p className="text-2xl font-extrabold text-tennis-700">{h2hData.p1Wins}</p>
-          </div>
-          <span className="text-gray-400 text-lg font-bold">-</span>
-          <div className="text-center">
-            <p className="text-2xl font-extrabold text-tennis-700">{h2hData.p2Wins}</p>
-            <p className="font-bold text-sm text-gray-900">{player2Name}</p>
-          </div>
-        </div>
-        {h2hData.draws > 0 && (
-          <p className="text-xs text-gray-600 text-center">
-            {h2hData.draws} {h2hData.draws === 1 ? 'remis' : 'remisów'}
-          </p>
-        )}
-        {h2hData.currentStreak?.count > 1 && h2hData.currentStreak?.name && (
-          <div className="mt-2 pt-2 border-t border-tennis-200">
-            <p className="text-sm text-tennis-700 text-center font-semibold">
-              Aktualna seria: {h2hData.currentStreak.name} {h2hData.currentStreak.count} z rzędu!
-            </p>
-          </div>
-        )}
-      </div>
+    <div className="w-full max-w-xs mt-4 p-3 bg-tennis-50 rounded-xl border border-tennis-200">
+      <p className="text-sm text-gray-700 text-center">
+        <span className="font-bold text-tennis-700">{player1Name}</span>{' '}
+        <span className="font-extrabold text-lg">{h2hData.p1Wins}</span>
+        <span className="text-gray-400 mx-1">:</span>
+        <span className="font-extrabold text-lg">{h2hData.p2Wins}</span>{' '}
+        <span className="font-bold text-tennis-700">{player2Name}</span>
+        <span className="text-xs text-gray-500 ml-1">(wszechczasy)</span>
+      </p>
+      {h2hData.draws > 0 && (
+        <p className="text-xs text-gray-500 text-center mt-0.5">
+          {h2hData.draws} {h2hData.draws === 1 ? 'remis' : 'remisów'}
+        </p>
+      )}
+      {h2hData.currentStreak?.count > 1 && h2hData.currentStreak?.name && (
+        <p className="text-xs text-tennis-600 text-center mt-1 font-medium">
+          Seria: {h2hData.currentStreak.name} {h2hData.currentStreak.count} z rzędu!
+        </p>
+      )}
     </div>
   );
 }
