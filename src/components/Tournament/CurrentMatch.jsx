@@ -370,7 +370,7 @@ export function CurrentMatch({ onPlayerClick }) {
     if (isSparring && sparringP1 && sparringP2 && stats1 && stats2) {
       const winner = stats1.won > stats2.won ? sparringP1 : stats2.won > stats1.won ? sparringP2 : null;
       return (
-        <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in overflow-y-auto" aria-live="polite">
+        <section className="flex-1 flex flex-col items-center justify-center p-8 pb-24 text-center fade-in overflow-y-auto" aria-live="polite">
           <div className="text-5xl mb-4" aria-hidden="true">{'\u{1F3BE}'}</div>
           <h2 className="text-2xl font-extrabold text-gray-900 mb-4">
             Sparring zakończony!
@@ -378,7 +378,7 @@ export function CurrentMatch({ onPlayerClick }) {
           <div className="flex items-center gap-6 mb-4">
             <div className="text-center">
               <PlayerAvatar name={sparringP1.name} size="lg" className={winner === sparringP1 ? 'ring-4 ring-tennis-400' : ''} />
-              <p className="font-bold mt-2 text-gray-900">{sparringP1.name}</p>
+              <p className="font-bold mt-2 text-gray-900 truncate max-w-[100px]">{sparringP1.name}</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-extrabold text-gray-900">{stats1.won}:{stats2.won}</p>
@@ -386,7 +386,7 @@ export function CurrentMatch({ onPlayerClick }) {
             </div>
             <div className="text-center">
               <PlayerAvatar name={sparringP2.name} size="lg" className={winner === sparringP2 ? 'ring-4 ring-tennis-400' : ''} />
-              <p className="font-bold mt-2 text-gray-900">{sparringP2.name}</p>
+              <p className="font-bold mt-2 text-gray-900 truncate max-w-[100px]">{sparringP2.name}</p>
             </div>
           </div>
           {winner && <p className="text-tennis-600 font-bold text-lg mb-4">Wygrywa {winner.name}!</p>}
@@ -469,7 +469,7 @@ export function CurrentMatch({ onPlayerClick }) {
 
   if (sparringMatchDone) {
     return (
-      <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in overflow-y-auto" aria-live="polite">
+      <section className="flex-1 flex flex-col items-center justify-center p-8 pb-24 text-center fade-in overflow-y-auto" aria-live="polite">
         <div className="text-5xl mb-4" aria-hidden="true">{'\u{2705}'}</div>
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
           Wynik zapisany!

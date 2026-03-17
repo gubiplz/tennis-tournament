@@ -88,7 +88,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Wpisz wiele wyników">
-      <div className="w-full max-w-md max-h-[90vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden slide-up">
+      <div className="w-full max-w-md max-h-[90vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden slide-up safe-bottom">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-gray-100 shrink-0">
           <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
@@ -96,9 +96,9 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
             Wpisz wiele wyników
           </h2>
           <div className="flex items-center justify-center gap-3 text-sm">
-            <span className="font-bold text-tennis-700">{p1Label}</span>
+            <span className="font-bold text-tennis-700 truncate max-w-[120px]">{p1Label}</span>
             <span className="text-gray-400">vs</span>
-            <span className="font-bold text-tennis-700">{p2Label}</span>
+            <span className="font-bold text-tennis-700 truncate max-w-[120px]">{p2Label}</span>
           </div>
         </div>
 
@@ -144,7 +144,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
                         'border-gray-200 bg-white'}
                       focus:border-tennis-500 focus:ring-2 focus:ring-tennis-500/20`}
                   />
-                  <span className="mt-1 text-[10px] font-medium text-gray-500 truncate max-w-[64px]">{p1Label}</span>
+                  <span className="mt-1 text-xs font-medium text-gray-500 truncate max-w-[64px]">{p1Label}</span>
                 </div>
                 <span className="text-2xl font-bold text-gray-300" aria-hidden="true">:</span>
                 <div className="flex flex-col items-center">
@@ -167,7 +167,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
                         'border-gray-200 bg-white'}
                       focus:border-tennis-500 focus:ring-2 focus:ring-tennis-500/20`}
                   />
-                  <span className="mt-1 text-[10px] font-medium text-gray-500 truncate max-w-[64px]">{p2Label}</span>
+                  <span className="mt-1 text-xs font-medium text-gray-500 truncate max-w-[64px]">{p2Label}</span>
                 </div>
               </div>
 
@@ -188,7 +188,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
                 <div className="mt-1 space-y-1.5 slide-up">
                   {row.sets.map((s, si) => (
                     <div key={si} className="flex items-center gap-2 pl-2">
-                      <span className="text-[10px] text-gray-500 w-8">S{si + 1}</span>
+                      <span className="text-xs text-gray-500 w-8">S{si + 1}</span>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -199,7 +199,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
                           updateSet(index, si, 0, raw === '' ? 0 : parseInt(raw));
                         }}
                         aria-label={`Mecz ${index + 1}, set ${si + 1}, gemy ${p1Label}`}
-                        className="w-10 h-9 text-center text-sm font-bold rounded-lg border border-gray-200 focus:border-tennis-500 focus:ring-1 focus:ring-tennis-500/20"
+                        className="w-10 h-10 text-center text-sm font-bold rounded-lg border border-gray-200 focus:border-tennis-500 focus:ring-1 focus:ring-tennis-500/20"
                       />
                       <span className="text-gray-300 text-xs" aria-hidden="true">:</span>
                       <input
@@ -212,7 +212,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
                           updateSet(index, si, 1, raw === '' ? 0 : parseInt(raw));
                         }}
                         aria-label={`Mecz ${index + 1}, set ${si + 1}, gemy ${p2Label}`}
-                        className="w-10 h-9 text-center text-sm font-bold rounded-lg border border-gray-200 focus:border-tennis-500 focus:ring-1 focus:ring-tennis-500/20"
+                        className="w-10 h-10 text-center text-sm font-bold rounded-lg border border-gray-200 focus:border-tennis-500 focus:ring-1 focus:ring-tennis-500/20"
                       />
                       <button
                         onClick={() => removeSet(index, si)}

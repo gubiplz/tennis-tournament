@@ -100,7 +100,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             value={stats?.played || 0}
             label="Mecze"
@@ -128,7 +128,7 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
         </div>
 
         {/* Extended Stats */}
-        <div className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl slide-up" style={{ animationDelay: '0.25s' }}>
+        <div className="flex flex-wrap justify-between items-center gap-3 p-4 bg-gray-50 rounded-2xl slide-up" style={{ animationDelay: '0.25s' }}>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">Sety:</span>
             <span className="font-bold text-gray-900">

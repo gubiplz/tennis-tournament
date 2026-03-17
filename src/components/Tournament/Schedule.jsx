@@ -160,7 +160,7 @@ export function Schedule({ onPlayerClick }) {
                       <span className="text-sm font-bold text-gray-500">#{match.id}</span>
                       {config.label}
                     </div>
-                    <div className="font-semibold text-gray-900">
+                    <div className="font-semibold text-gray-900 truncate">
                       <button
                         onClick={() => onPlayerClick?.(player1?.id)}
                         className="hover:text-tennis-700 transition-colors min-h-[44px] inline-flex items-center"
@@ -180,7 +180,7 @@ export function Schedule({ onPlayerClick }) {
                   </div>
 
                   {/* Score / Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {match.completed ? (
                       <>
                         <div className="flex items-center gap-2">
@@ -196,7 +196,7 @@ export function Schedule({ onPlayerClick }) {
                           </div>
                           {/* Set scores as badges */}
                           {match.sets && match.sets.length > 0 && (
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                               {match.sets.filter(s => !(s[0]===0 && s[1]===0)).map((s, si) => (
                                 <span
                                   key={si}
@@ -268,7 +268,7 @@ export function Schedule({ onPlayerClick }) {
       </div>
 
       {/* Legend */}
-      <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+      <div className="p-4 pb-6 bg-white/80 backdrop-blur-sm border-t border-gray-100">
         <div className="flex flex-wrap gap-4 justify-center text-xs text-gray-600">
           <span className="flex items-center gap-1.5">
             <span className="w-5 h-5 rounded-full bg-gradient-to-br from-green-400 to-green-500 flex items-center justify-center" aria-hidden="true">

@@ -79,7 +79,7 @@ export function ChangeLog() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-gradient-to-b from-gray-50 to-white">
+    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 pb-8 bg-gradient-to-b from-gray-50 to-white">
       {/* Tournament Info */}
       <div className="card-premium mb-4 fade-in">
         <div className="flex items-start justify-between mb-4">
@@ -164,7 +164,7 @@ export function ChangeLog() {
             {changeLog.length > 10 && (
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="w-full py-3 text-sm font-medium text-tennis-700 hover:text-tennis-800 hover:bg-tennis-50 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-3 min-h-[44px] text-sm font-medium text-tennis-700 hover:text-tennis-800 hover:bg-tennis-50 rounded-xl transition-all duration-200 flex items-center justify-center gap-2"
               >
                 {expanded ? (
                   <>

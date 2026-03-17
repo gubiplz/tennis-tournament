@@ -147,7 +147,7 @@ export function TournamentSetup() {
             <div className="pt-2 pb-2">
               <button
                 onClick={() => navigate('/')}
-                className="flex items-center gap-2 text-white/80 hover:text-white text-sm font-medium transition-colors"
+                className="flex items-center gap-2 text-white/80 hover:text-white text-sm font-medium transition-colors min-h-[44px] min-w-[44px]"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />

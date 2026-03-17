@@ -192,7 +192,7 @@ export function Standings({ onPlayerClick }) {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar overscroll-bounce p-4 bg-gradient-to-b from-gray-50 to-white">
+    <div className="flex-1 overflow-y-auto custom-scrollbar overscroll-bounce p-4 pb-8 bg-gradient-to-b from-gray-50 to-white">
       {/* Desktop container */}
       <div className="max-w-5xl mx-auto">
         {/* Header for completed tournament */}

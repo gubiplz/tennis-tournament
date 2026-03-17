@@ -265,7 +265,7 @@ export function TournamentView() {
           {/* Main Content with tab transition */}
           <main
             id="main-content"
-            className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-150 pb-16 xl:pb-0 ${tabTransition ? 'opacity-0' : 'opacity-100'}`}
+            className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-150 pb-20 xl:pb-0 ${tabTransition ? 'opacity-0' : 'opacity-100'}`}
           >
             {/* Screen reader announcement for tab changes */}
             <div className="sr-only" aria-live="polite" aria-atomic="true">
