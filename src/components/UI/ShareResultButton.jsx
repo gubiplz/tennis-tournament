@@ -2,9 +2,7 @@ import { useState, useCallback } from 'react';
 import { generateResultImage } from '../../utils/shareImage';
 
 /**
- * "Udostepnij wynik" button that generates a canvas image
- * and shares it via Web Share API (with file), falls back to
- * text share, or downloads the image.
+ * "Udostępnij wynik" — generuje grafikę PNG i udostępnia/pobiera.
  */
 export function ShareResultButton({ gameType, name, date, players, matches, standings }) {
   const [loading, setLoading] = useState(false);
@@ -29,59 +27,37 @@ export function ShareResultButton({ gameType, name, date, players, matches, stan
         ? 'sparring-wynik.png'
         : 'turniej-wynik.png';
 
-      const file = new File([blob], fileName, { type: 'image/png' });
-
-      // Try sharing with file (mobile Safari, Chrome, etc.)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: name || 'Wyniki',
-            text: gameType === 'sparring'
-              ? `Sparring: ${players?.[0]?.name} vs ${players?.[1]?.name}`
-              : `Turniej: ${name || 'Turniej Tenisa'}`,
-          });
-          setDone(true);
-          setTimeout(() => setDone(false), 2000);
-          return;
-        } catch (err) {
-          // AbortError means user cancelled — not a real error
-          if (err?.name === 'AbortError') {
+      // Try native share with file (mobile)
+      if (navigator.canShare) {
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: name || 'Wyniki tenisa',
+            });
+            setDone(true);
+            setTimeout(() => setDone(false), 2000);
             return;
+          } catch (err) {
+            if (err?.name === 'AbortError') return;
           }
-          // Fall through to other methods
         }
       }
 
-      // Fallback 1: share text (no file support)
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: name || 'Wyniki',
-            text: gameType === 'sparring'
-              ? `Sparring: ${players?.[0]?.name} vs ${players?.[1]?.name}`
-              : `Turniej: ${name || 'Turniej Tenisa'}`,
-            url: window.location.href,
-          });
-          setDone(true);
-          setTimeout(() => setDone(false), 2000);
-
-          // Also trigger download so user gets the image
-          downloadBlob(blob, fileName);
-          return;
-        } catch (err) {
-          if (err?.name === 'AbortError') return;
-        }
-      }
-
-      // Fallback 2: just download
+      // Desktop / fallback: open image in new tab + download
       downloadBlob(blob, fileName);
       setDone(true);
       setTimeout(() => setDone(false), 2000);
     } catch (err) {
-      console.error('Share image generation failed:', err);
-      // Show alert with error for debugging on mobile
-      alert('Nie udało się wygenerować obrazu: ' + (err?.message || 'Nieznany błąd'));
+      console.error('Share failed:', err);
+      // Fallback: try to at least download what we have
+      try {
+        const blob = await generateResultImage({ gameType, name, date, players, matches, standings });
+        downloadBlob(blob, gameType === 'sparring' ? 'sparring-wynik.png' : 'turniej-wynik.png');
+      } catch {
+        alert('Nie udało się wygenerować obrazu. Spróbuj ponownie.');
+      }
     } finally {
       setLoading(false);
     }
@@ -101,7 +77,7 @@ export function ShareResultButton({ gameType, name, date, players, matches, stan
         }
         ${loading ? 'opacity-70 cursor-wait' : ''}
       `}
-      aria-label="Udostepnij wynik jako obraz"
+      aria-label="Udostępnij wynik jako obraz"
     >
       {loading ? (
         <>
@@ -116,14 +92,14 @@ export function ShareResultButton({ gameType, name, date, players, matches, stan
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
-          <span>Gotowe!</span>
+          <span>Pobrano!</span>
         </>
       ) : (
         <>
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
           </svg>
-          <span>Udost\u0119pnij wynik</span>
+          <span>Udostępnij wynik</span>
         </>
       )}
     </button>
@@ -138,6 +114,5 @@ function downloadBlob(blob, fileName) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Revoke after a short delay to allow the download to start
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
