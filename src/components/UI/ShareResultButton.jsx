@@ -80,7 +80,8 @@ export function ShareResultButton({ gameType, name, date, players, matches, stan
       setTimeout(() => setDone(false), 2000);
     } catch (err) {
       console.error('Share image generation failed:', err);
-      // Silent fail — the button just resets
+      // Show alert with error for debugging on mobile
+      alert('Nie udało się wygenerować obrazu: ' + (err?.message || 'Nieznany błąd'));
     } finally {
       setLoading(false);
     }
