@@ -5,6 +5,7 @@ import { ProgressBar } from '../UI/ProgressBar';
 import { PlayerAvatar } from '../UI/PlayerAvatar';
 import { TennisScoreInput } from '../UI/TennisScoreInput';
 import { BatchScoreInput } from '../UI/BatchScoreInput';
+import { ShareResultButton } from '../UI/ShareResultButton';
 import { usePlayerMap } from '../../hooks/usePlayerMap';
 import { MAX_SCORE, MIN_SCORE } from '../../constants/tournament';
 import { hapticSuccess, hapticCelebration } from '../../utils/haptics';
@@ -240,7 +241,8 @@ export function CurrentMatch({ onPlayerClick }) {
   const {
     matches, players, currentMatchIndex, settings,
     recordScore, recordBatchScores, status, gameType,
-    addSparringMatch, endTournament, addRound
+    addSparringMatch, endTournament, addRound,
+    name: tournamentName, date: tournamentDate
   } = useTournamentStore();
   const isSparring = gameType === 'sparring';
   const isTournament = gameType === 'tournament';
@@ -422,6 +424,16 @@ export function CurrentMatch({ onPlayerClick }) {
 
           {/* H2H cross-session section */}
           <H2HSection player1Name={sparringP1?.name} player2Name={sparringP2?.name} compact={false} />
+
+          {/* Share result as image */}
+          <ShareResultButton
+            gameType="sparring"
+            name={tournamentName}
+            date={tournamentDate}
+            players={players}
+            matches={matches}
+            standings={standings}
+          />
         </section>
       );
     }
@@ -459,7 +471,17 @@ export function CurrentMatch({ onPlayerClick }) {
             ))}
           </ol>
         )}
-        <p className="text-gray-600 text-sm mt-4">Sprawdź pełną tabelę w zakładce "Tabela"</p>
+        <p className="text-gray-600 text-sm mt-4">Sprawdź pełną tabelę w zakładce &quot;Tabela&quot;</p>
+
+        {/* Share result as image */}
+        <ShareResultButton
+          gameType="tournament"
+          name={tournamentName}
+          date={tournamentDate}
+          players={players}
+          matches={matches}
+          standings={standings}
+        />
       </section>
     );
   }
