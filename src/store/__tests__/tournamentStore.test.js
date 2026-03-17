@@ -45,7 +45,8 @@ function startWith(names, opts = {}) {
     opts.name || '',
     opts.location || '',
     opts.date || '',
-    opts.gameType || undefined
+    opts.gameType || undefined,
+    opts.numberOfRounds || undefined
   );
   return getState();
 }
@@ -417,7 +418,7 @@ describe('tournamentStore', () => {
       expect(getState().changeLog.length).toBe(logBefore);
     });
 
-    it('walkoverPlayer auto-completes tournament if all matches become completed', () => {
+    it('walkoverPlayer marks all matches completed but keeps tournament active for user choice', () => {
       startWith(['A', 'B', 'C']);
       const players = getState().players;
 
@@ -428,7 +429,8 @@ describe('tournamentStore', () => {
 
       const allDone = state.matches.every((m) => m.completed);
       expect(allDone).toBe(true);
-      expect(state.status).toBe('completed');
+      // Tournament stays active — user chooses "Zakończ" or "Dodaj rundę"
+      expect(state.status).toBe('active');
     });
   });
 
@@ -587,12 +589,13 @@ describe('tournamentStore', () => {
       expect(new Set(pairs).size).toBe(28);
     });
 
-    it('recording score when all tournament matches complete auto-completes', () => {
+    it('recording all scores keeps tournament active for user choice', () => {
       startWith(['A', 'B', 'C']);
       const state = completeAllMatches();
 
       expect(state.matches.every((m) => m.completed)).toBe(true);
-      expect(state.status).toBe('completed');
+      // Tournament stays active — user chooses "Zakończ" or "Dodaj rundę"
+      expect(state.status).toBe('active');
     });
 
     it('currentMatchIndex advances past completed matches', () => {
@@ -727,6 +730,405 @@ describe('tournamentStore', () => {
       expect(state.matches.every((m) => m.completed)).toBe(true);
       // Sparring should stay active
       expect(state.status).toBe('active');
+    });
+  });
+
+  // =========================================================================
+  // 7. recordBatchScores (sparring batch scoring)
+  // =========================================================================
+  describe('recordBatchScores', () => {
+    it('records a single score on the current unscored match', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      const currentMatch = getState().matches[0];
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 1, sets: [[6, 4], [3, 6], [7, 5]] }
+      ]);
+      const state = getState();
+
+      expect(state.matches).toHaveLength(1);
+      const updated = state.matches[0];
+      expect(updated.id).toBe(currentMatch.id);
+      expect(updated.completed).toBe(true);
+      expect(updated.score1).toBe(2);
+      expect(updated.score2).toBe(1);
+      expect(updated.sets).toEqual([[6, 4], [3, 6], [7, 5]]);
+    });
+
+    it('records multiple scores: first on current match, rest create new matches', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      const { players } = getState();
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0, sets: [[6, 2], [6, 3]] },
+        { score1: 1, score2: 2, sets: [[6, 4], [4, 6], [3, 6]] },
+        { score1: 2, score2: 1, sets: [[7, 5], [3, 6], [6, 4]] }
+      ]);
+      const state = getState();
+
+      expect(state.matches).toHaveLength(3);
+      expect(state.matches.every((m) => m.completed)).toBe(true);
+
+      // First match used the existing one (id=1)
+      expect(state.matches[0].id).toBe(1);
+      expect(state.matches[0].score1).toBe(2);
+      expect(state.matches[0].score2).toBe(0);
+
+      // Second match is new (id=2)
+      expect(state.matches[1].id).toBe(2);
+      expect(state.matches[1].score1).toBe(1);
+      expect(state.matches[1].score2).toBe(2);
+      expect(state.matches[1].player1Id).toBe(players[0].id);
+      expect(state.matches[1].player2Id).toBe(players[1].id);
+
+      // Third match is new (id=3)
+      expect(state.matches[2].id).toBe(3);
+      expect(state.matches[2].score1).toBe(2);
+      expect(state.matches[2].score2).toBe(1);
+    });
+
+    it('creates all new matches when current match is already completed', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      // Complete the first match manually
+      recordScore(getState().matches[0].id, 2, 0, [[6, 2], [6, 3]]);
+
+      getState().recordBatchScores([
+        { score1: 1, score2: 2, sets: [[4, 6], [6, 3], [5, 7]] },
+        { score1: 2, score2: 0, sets: [[6, 1], [6, 2]] }
+      ]);
+      const state = getState();
+
+      // 1 original (completed) + 2 new
+      expect(state.matches).toHaveLength(3);
+      expect(state.matches[0].score1).toBe(2); // Original unchanged
+      expect(state.matches[1].id).toBe(2);
+      expect(state.matches[1].score1).toBe(1);
+      expect(state.matches[2].id).toBe(3);
+      expect(state.matches[2].score1).toBe(2);
+    });
+
+    it('adds changelog entries for each scored match', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      const logBefore = getState().changeLog.length; // 1 (START)
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0, sets: [[6, 2], [6, 3]] },
+        { score1: 1, score2: 2, sets: [[6, 4], [4, 6], [3, 6]] }
+      ]);
+      const state = getState();
+
+      // 2 new SCORE entries + 1 original START
+      expect(state.changeLog).toHaveLength(logBefore + 2);
+      // Most recent first
+      expect(state.changeLog[0].action).toBe('SCORE');
+      expect(state.changeLog[1].action).toBe('SCORE');
+    });
+
+    it('sparring stays active after batch scoring', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0, sets: [[6, 2], [6, 3]] }
+      ]);
+      const state = getState();
+
+      expect(state.status).toBe('active');
+    });
+
+    it('is a no-op for tournament gameType', () => {
+      startWith(['A', 'B', 'C']);
+      const matchesBefore = getState().matches.length;
+      const logBefore = getState().changeLog.length;
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0, sets: [[6, 2], [6, 3]] }
+      ]);
+      const state = getState();
+
+      expect(state.matches.length).toBe(matchesBefore);
+      expect(state.changeLog.length).toBe(logBefore);
+    });
+
+    it('is a no-op for empty scores array', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      const matchesBefore = getState().matches.length;
+
+      getState().recordBatchScores([]);
+      expect(getState().matches.length).toBe(matchesBefore);
+    });
+
+    it('sets currentMatchIndex to last match', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0, sets: [[6, 2], [6, 3]] },
+        { score1: 1, score2: 2, sets: [[4, 6], [6, 3], [5, 7]] },
+        { score1: 2, score2: 1, sets: [[7, 5], [3, 6], [6, 4]] }
+      ]);
+      const state = getState();
+
+      expect(state.currentMatchIndex).toBe(2); // last match index
+    });
+
+    it('handles scores without sets (uses empty array)', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0 }
+      ]);
+      const state = getState();
+
+      expect(state.matches[0].sets).toEqual([]);
+      expect(state.matches[0].score1).toBe(2);
+    });
+
+    it('match IDs are sequential after existing matches', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      // Add a few matches manually first
+      getState().addSparringMatch();
+      getState().addSparringMatch();
+      // Now we have 3 matches (ids 1, 2, 3)
+      // Complete all existing
+      recordScore(1, 2, 0, [[6, 2], [6, 3]]);
+      recordScore(2, 1, 2, [[4, 6], [6, 3], [5, 7]]);
+      recordScore(3, 2, 1, [[7, 5], [3, 6], [6, 4]]);
+
+      getState().recordBatchScores([
+        { score1: 2, score2: 0, sets: [[6, 1], [6, 2]] },
+        { score1: 0, score2: 2, sets: [[3, 6], [2, 6]] }
+      ]);
+      const state = getState();
+
+      expect(state.matches).toHaveLength(5);
+      expect(state.matches[3].id).toBe(4);
+      expect(state.matches[4].id).toBe(5);
+    });
+  });
+
+  // =========================================================================
+  // 8. addRound (tournament additional rounds)
+  // =========================================================================
+  describe('addRound', () => {
+    it('adds a new round of matches for tournament mode', () => {
+      startWith(['A', 'B', 'C']);
+      // 3 players => 3 matches initially
+      expect(getState().matches).toHaveLength(3);
+
+      getState().addRound();
+      const state = getState();
+
+      // 3 original + 3 new = 6
+      expect(state.matches).toHaveLength(6);
+    });
+
+    it('new matches have IDs continuing from existing matches', () => {
+      startWith(['A', 'B', 'C']);
+      const originalMaxId = Math.max(...getState().matches.map(m => m.id));
+
+      getState().addRound();
+      const state = getState();
+
+      const newMatches = state.matches.slice(3);
+      const newIds = newMatches.map(m => m.id);
+      // All new IDs should be > originalMaxId
+      for (const id of newIds) {
+        expect(id).toBeGreaterThan(originalMaxId);
+      }
+      // IDs should be sequential
+      expect(newIds).toEqual([originalMaxId + 1, originalMaxId + 2, originalMaxId + 3]);
+    });
+
+    it('sets currentMatchIndex to first new match', () => {
+      startWith(['A', 'B', 'C']);
+      const originalLength = getState().matches.length;
+
+      getState().addRound();
+      const state = getState();
+
+      expect(state.currentMatchIndex).toBe(originalLength);
+    });
+
+    it('new matches cover all player pairs', () => {
+      startWith(['A', 'B', 'C', 'D']);
+      // 4 players => 6 matches initially
+      getState().addRound();
+      const state = getState();
+
+      const newMatches = state.matches.slice(6);
+      expect(newMatches).toHaveLength(6);
+
+      const playerIds = state.players.map(p => p.id);
+      const pairs = new Set();
+      for (const match of newMatches) {
+        expect(playerIds).toContain(match.player1Id);
+        expect(playerIds).toContain(match.player2Id);
+        const pair = [match.player1Id, match.player2Id].sort().join('-');
+        pairs.add(pair);
+      }
+      expect(pairs.size).toBe(6);
+    });
+
+    it('all new matches are uncompleted', () => {
+      startWith(['A', 'B', 'C']);
+      getState().addRound();
+      const state = getState();
+
+      const newMatches = state.matches.slice(3);
+      for (const match of newMatches) {
+        expect(match.completed).toBe(false);
+        expect(match.score1).toBeNull();
+        expect(match.score2).toBeNull();
+      }
+    });
+
+    it('adds a changelog entry', () => {
+      startWith(['A', 'B', 'C']);
+      const logBefore = getState().changeLog.length;
+
+      getState().addRound();
+      const state = getState();
+
+      expect(state.changeLog.length).toBe(logBefore + 1);
+      expect(state.changeLog[0].action).toBe('SCORE');
+      expect(state.changeLog[0].details).toContain('Dodano rundę');
+    });
+
+    it('addRound keeps tournament active after all matches completed', () => {
+      startWith(['A', 'B', 'C']);
+      completeAllMatches();
+      // Tournament stays active (no auto-complete)
+      expect(getState().status).toBe('active');
+
+      getState().addRound();
+      const state = getState();
+
+      expect(state.status).toBe('active');
+    });
+
+    it('is a no-op for sparring gameType', () => {
+      startWith(['Player1', 'Player2'], { gameType: 'sparring' });
+      const matchesBefore = getState().matches.length;
+
+      getState().addRound();
+      expect(getState().matches.length).toBe(matchesBefore);
+    });
+
+    it('new rounds have higher round numbers than existing ones', () => {
+      startWith(['A', 'B', 'C']);
+      const originalMaxRound = Math.max(...getState().matches.map(m => m.round));
+
+      getState().addRound();
+      const state = getState();
+
+      const newMatches = state.matches.slice(3);
+      for (const match of newMatches) {
+        expect(match.round).toBeGreaterThan(originalMaxRound);
+      }
+    });
+
+    it('can add multiple rounds', () => {
+      startWith(['A', 'B', 'C']);
+      // 3 matches initially
+
+      getState().addRound();
+      expect(getState().matches).toHaveLength(6);
+
+      getState().addRound();
+      expect(getState().matches).toHaveLength(9);
+
+      // All IDs should be unique
+      const ids = getState().matches.map(m => m.id);
+      expect(new Set(ids).size).toBe(9);
+    });
+  });
+
+  // =========================================================================
+  // 9. startTournament with numberOfRounds
+  // =========================================================================
+  describe('startTournament with numberOfRounds', () => {
+    it('with numberOfRounds=1 creates standard round-robin (same as default)', () => {
+      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 1 });
+
+      // C(3,2) = 3 matches
+      expect(state.matches).toHaveLength(3);
+    });
+
+    it('with numberOfRounds=2 creates double round-robin', () => {
+      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
+
+      // 3 matches per round * 2 rounds = 6 matches
+      expect(state.matches).toHaveLength(6);
+    });
+
+    it('with numberOfRounds=3 creates triple round-robin', () => {
+      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 3 });
+
+      // 3 matches per round * 3 rounds = 9 matches
+      expect(state.matches).toHaveLength(9);
+    });
+
+    it('match IDs are unique and sequential', () => {
+      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
+
+      const ids = state.matches.map(m => m.id);
+      // Sequential from 1 to 6
+      expect(ids).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it('each pair appears numberOfRounds times', () => {
+      const state = startWith(['A', 'B', 'C', 'D'], { numberOfRounds: 2 });
+
+      // 6 matches per round * 2 rounds = 12 matches
+      expect(state.matches).toHaveLength(12);
+
+      // Each pair should appear exactly 2 times
+      const pairCounts = {};
+      for (const match of state.matches) {
+        const pair = [match.player1Id, match.player2Id].sort().join('-');
+        pairCounts[pair] = (pairCounts[pair] || 0) + 1;
+      }
+
+      const counts = Object.values(pairCounts);
+      expect(counts.every(c => c === 2)).toBe(true);
+      // C(4,2) = 6 unique pairs
+      expect(Object.keys(pairCounts)).toHaveLength(6);
+    });
+
+    it('without numberOfRounds behaves as single round-robin', () => {
+      const state = startWith(['A', 'B', 'C']);
+
+      // C(3,2) = 3 matches
+      expect(state.matches).toHaveLength(3);
+    });
+
+    it('all matches start uncompleted', () => {
+      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
+
+      for (const match of state.matches) {
+        expect(match.completed).toBe(false);
+        expect(match.score1).toBeNull();
+        expect(match.score2).toBeNull();
+      }
+    });
+
+    it('changelog reflects total match count', () => {
+      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
+
+      expect(state.changeLog[0].details).toContain('6 meczów');
+    });
+
+    it('with 4 players and numberOfRounds=3 creates correct match count', () => {
+      const state = startWith(['A', 'B', 'C', 'D'], { numberOfRounds: 3 });
+
+      // 6 matches per round * 3 rounds = 18 matches
+      expect(state.matches).toHaveLength(18);
+
+      const pairCounts = {};
+      for (const match of state.matches) {
+        const pair = [match.player1Id, match.player2Id].sort().join('-');
+        pairCounts[pair] = (pairCounts[pair] || 0) + 1;
+      }
+      expect(Object.values(pairCounts).every(c => c === 3)).toBe(true);
     });
   });
 });

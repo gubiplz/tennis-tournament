@@ -65,13 +65,32 @@ export const useTournamentStore = create(
         })),
 
       // Start tournament/sparring with player names
-      startTournament: (playerNames, tournamentName, tournamentLocation, tournamentDate, gameType) => {
+      startTournament: (playerNames, tournamentName, tournamentLocation, tournamentDate, gameType, numberOfRounds) => {
         const players = playerNames.map((name) => ({
           id: uuidv4(),
           name: sanitizePlayerName(name)
         }));
 
-        const matches = generateRoundRobin(players);
+        const baseMatches = generateRoundRobin(players);
+
+        // Support multiple rounds: duplicate matches with new IDs for each extra round
+        const rounds = numberOfRounds && numberOfRounds > 1 ? numberOfRounds : 1;
+        let matches;
+        if (rounds > 1) {
+          matches = [];
+          for (let r = 0; r < rounds; r++) {
+            for (const match of baseMatches) {
+              matches.push({
+                ...match,
+                id: matches.length + 1,
+                round: match.round + r * (baseMatches.length > 0 ? Math.max(...baseMatches.map(m => m.round)) : 0)
+              });
+            }
+          }
+        } else {
+          matches = baseMatches;
+        }
+
         const id = uuidv4();
         const createdAt = new Date().toISOString();
 
@@ -148,10 +167,10 @@ export const useTournamentStore = create(
           }
         }
 
-        // Check if tournament is complete (sparring never auto-completes)
-        const allCompleted = state.gameType === 'sparring'
-          ? false
-          : updatedMatches.every((m) => m.completed);
+        // Neither sparring nor tournament auto-completes.
+        // Sparring: user clicks "Zakończ" to end.
+        // Tournament: UI shows a choice screen (end or add round) when all matches are done.
+        // The user then calls endTournament() explicitly.
 
         const setsStr = sets && sets.length > 0
           ? sets.map(s => `${s[0]}:${s[1]}`).join(', ')
@@ -172,8 +191,137 @@ export const useTournamentStore = create(
         set({
           matches: updatedMatches,
           currentMatchIndex: nextMatchIndex,
-          status: allCompleted ? 'completed' : 'active',
+          status: 'active',
           changeLog: [logEntry, ...state.changeLog]
+        });
+      },
+
+      // Record multiple sparring match scores at once
+      // scores = [{ score1, score2, sets }, ...]
+      // First score goes to current match (if unscored), rest create new matches
+      recordBatchScores: (scores) => {
+        const state = get();
+        if (state.gameType !== 'sparring' || state.players.length !== 2 || !scores || scores.length === 0) return;
+
+        const timestamp = new Date().toISOString();
+        const updatedMatches = [...state.matches];
+        const logEntries = [];
+        let startIdx = 0;
+
+        // Try to use the current match for the first score
+        const currentMatch = updatedMatches[state.currentMatchIndex];
+        if (currentMatch && !currentMatch.completed) {
+          const entry = scores[0];
+          const player1 = state.players.find((p) => p.id === currentMatch.player1Id);
+          const player2 = state.players.find((p) => p.id === currentMatch.player2Id);
+
+          const setsStr = entry.sets && entry.sets.length > 0
+            ? entry.sets.map(s => `${s[0]}:${s[1]}`).join(', ')
+            : `${entry.score1}:${entry.score2}`;
+
+          updatedMatches[state.currentMatchIndex] = {
+            ...currentMatch,
+            score1: entry.score1,
+            score2: entry.score2,
+            sets: entry.sets || [],
+            completed: true,
+            completedAt: timestamp,
+            editedAt: null
+          };
+
+          logEntries.push({
+            id: uuidv4(),
+            timestamp,
+            action: 'SCORE',
+            details: `Mecz #${currentMatch.id}: ${player1?.name} vs ${player2?.name} (${setsStr})`,
+            matchId: currentMatch.id,
+            previousValue: null,
+            newValue: setsStr
+          });
+
+          startIdx = 1;
+        }
+
+        // Create new matches for remaining scores
+        for (let i = startIdx; i < scores.length; i++) {
+          const entry = scores[i];
+          const newMatchId = updatedMatches.length + 1;
+          const player1 = state.players[0];
+          const player2 = state.players[1];
+
+          const setsStr = entry.sets && entry.sets.length > 0
+            ? entry.sets.map(s => `${s[0]}:${s[1]}`).join(', ')
+            : `${entry.score1}:${entry.score2}`;
+
+          updatedMatches.push({
+            id: newMatchId,
+            round: newMatchId,
+            player1Id: player1.id,
+            player2Id: player2.id,
+            score1: entry.score1,
+            score2: entry.score2,
+            sets: entry.sets || [],
+            completed: true,
+            completedAt: timestamp,
+            editedAt: null
+          });
+
+          logEntries.push({
+            id: uuidv4(),
+            timestamp,
+            action: 'SCORE',
+            details: `Mecz #${newMatchId}: ${player1?.name} vs ${player2?.name} (${setsStr})`,
+            matchId: newMatchId,
+            previousValue: null,
+            newValue: setsStr
+          });
+        }
+
+        // Point currentMatchIndex to the last match (all are completed, sparring stays active)
+        const lastIndex = updatedMatches.length - 1;
+
+        set({
+          matches: updatedMatches,
+          currentMatchIndex: lastIndex,
+          changeLog: [...logEntries.reverse(), ...state.changeLog]
+        });
+      },
+
+      // Add another round of round-robin matches (tournament mode, 3+ players)
+      addRound: () => {
+        const state = get();
+        if (state.gameType !== 'tournament' || state.players.length < 3) return;
+
+        const newRoundMatches = generateRoundRobin(state.players);
+        const lastMatchId = state.matches.length > 0
+          ? Math.max(...state.matches.map(m => m.id))
+          : 0;
+        const maxRound = state.matches.length > 0
+          ? Math.max(...state.matches.map(m => m.round))
+          : 0;
+
+        const renumberedMatches = newRoundMatches.map((match, idx) => ({
+          ...match,
+          id: lastMatchId + idx + 1,
+          round: maxRound + match.round
+        }));
+
+        const timestamp = new Date().toISOString();
+        const firstNewIndex = state.matches.length;
+
+        set({
+          matches: [...state.matches, ...renumberedMatches],
+          currentMatchIndex: firstNewIndex,
+          status: 'active',
+          changeLog: [
+            {
+              id: uuidv4(),
+              timestamp,
+              action: 'SCORE',
+              details: `Dodano rundę (${renumberedMatches.length} meczów)`
+            },
+            ...state.changeLog
+          ]
         });
       },
 
@@ -213,7 +361,7 @@ export const useTournamentStore = create(
           };
         });
 
-        const allCompleted = updatedMatches.every((m) => m.completed);
+        // Don't auto-complete — let the UI handle the end-of-tournament choice
         let nextMatchIndex = state.currentMatchIndex;
         for (let i = nextMatchIndex; i < updatedMatches.length; i++) {
           if (!updatedMatches[i].completed) {
@@ -225,7 +373,7 @@ export const useTournamentStore = create(
         set({
           matches: updatedMatches,
           currentMatchIndex: nextMatchIndex,
-          status: allCompleted ? 'completed' : 'active',
+          status: 'active',
           changeLog: [
             {
               id: uuidv4(),

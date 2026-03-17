@@ -4,9 +4,22 @@ import { calculatePlayerStats, calculateStandings, getRestingPlayers } from '../
 import { ProgressBar } from '../UI/ProgressBar';
 import { PlayerAvatar } from '../UI/PlayerAvatar';
 import { TennisScoreInput } from '../UI/TennisScoreInput';
+import { BatchScoreInput } from '../UI/BatchScoreInput';
 import { usePlayerMap } from '../../hooks/usePlayerMap';
 import { MAX_SCORE, MIN_SCORE } from '../../constants/tournament';
 import { hapticSuccess, hapticCelebration } from '../../utils/haptics';
+import { storageService } from '../../services/storageService';
+
+// Guard import of calculateCrossSessionH2H — may not exist yet
+let calculateCrossSessionH2H = null;
+try {
+  const statsModule = await import('../../utils/statistics.js');
+  if (statsModule.calculateCrossSessionH2H) {
+    calculateCrossSessionH2H = statsModule.calculateCrossSessionH2H;
+  }
+} catch {
+  // statistics.js function not available
+}
 
 // Pre-generate confetti pieces to avoid Math.random() during render
 const CONFETTI_COLORS = ['#22c55e', '#16a34a', '#fbbf24', '#f59e0b', '#3b82f6', '#ef4444'];
@@ -80,22 +93,184 @@ function AnimatedScore({ value, label }) {
   );
 }
 
+// ----------- H2H Section (compact or full) -----------
+
+function H2HSection({ player1Name, player2Name, compact }) {
+  const [h2hData, setH2hData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!calculateCrossSessionH2H || !player1Name || !player2Name) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadH2H() {
+      try {
+        const result = await storageService.loadAllTournaments();
+        if (cancelled) return;
+        if (result?.data) {
+          const data = calculateCrossSessionH2H(player1Name, player2Name, result.data);
+          setH2hData(data);
+        }
+      } catch (err) {
+        console.error('Failed to load H2H data:', err);
+      }
+      if (!cancelled) setLoading(false);
+    }
+
+    loadH2H();
+    return () => { cancelled = true; };
+  }, [player1Name, player2Name]);
+
+  if (loading || !h2hData || h2hData.totalMatches === 0) return null;
+
+  if (compact) {
+    return (
+      <div className="w-full max-w-xs mt-4 p-3 bg-tennis-50 rounded-xl border border-tennis-200">
+        <p className="text-sm text-gray-700 text-center">
+          <span className="font-semibold">Wszechczasy:</span>{' '}
+          <span className="font-bold text-tennis-700">{player1Name}</span>{' '}
+          <span className="font-extrabold">{h2hData.p1Wins}</span>
+          <span className="text-gray-400"> - </span>
+          <span className="font-extrabold">{h2hData.p2Wins}</span>{' '}
+          <span className="font-bold text-tennis-700">{player2Name}</span>
+        </p>
+        {h2hData.currentStreak?.count > 1 && h2hData.currentStreak?.name && (
+          <p className="text-xs text-tennis-600 text-center mt-1 font-medium">
+            Seria: {h2hData.currentStreak.name} {h2hData.currentStreak.count} z rzędu!
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-xs mt-6">
+      <h3 className="text-xs text-gray-600 uppercase tracking-wider mb-2 font-semibold">Bilans wszechczasów</h3>
+      <div className="p-4 bg-gradient-to-r from-tennis-50 to-tennis-100 rounded-2xl border border-tennis-200">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <div className="text-center">
+            <p className="font-bold text-sm text-gray-900">{player1Name}</p>
+            <p className="text-2xl font-extrabold text-tennis-700">{h2hData.p1Wins}</p>
+          </div>
+          <span className="text-gray-400 text-lg font-bold">-</span>
+          <div className="text-center">
+            <p className="text-2xl font-extrabold text-tennis-700">{h2hData.p2Wins}</p>
+            <p className="font-bold text-sm text-gray-900">{player2Name}</p>
+          </div>
+        </div>
+        {h2hData.draws > 0 && (
+          <p className="text-xs text-gray-600 text-center">
+            {h2hData.draws} {h2hData.draws === 1 ? 'remis' : 'remisów'}
+          </p>
+        )}
+        {h2hData.currentStreak?.count > 1 && h2hData.currentStreak?.name && (
+          <div className="mt-2 pt-2 border-t border-tennis-200">
+            <p className="text-sm text-tennis-700 text-center font-semibold">
+              Aktualna seria: {h2hData.currentStreak.name} {h2hData.currentStreak.count} z rzędu!
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ----------- TournamentAllDone (choice screen for tournament mode) -----------
+
+function TournamentAllDone({ standings, onEndTournament, onAddRound }) {
+  return (
+    <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="polite">
+      <div className="text-5xl mb-4" aria-hidden="true">{'\u{1F3C6}'}</div>
+      <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
+        Wszystkie mecze rozegrane!
+      </h2>
+      <p className="text-gray-600 mb-6 text-sm">
+        Co chcesz zrobić?
+      </p>
+
+      {/* Quick standings preview */}
+      {standings.length > 0 && (
+        <div className="w-full max-w-xs mb-6">
+          <div className="space-y-2">
+            {standings.slice(0, 3).map((p, i) => (
+              <div
+                key={p.playerId}
+                className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  i === 0 ? 'bg-yellow-50 border-yellow-200' :
+                  i === 1 ? 'bg-gray-50 border-gray-200' :
+                  'bg-orange-50 border-orange-200'
+                }`}
+              >
+                <span className="text-lg" aria-hidden="true">
+                  {i === 0 ? '\u{1F947}' : i === 1 ? '\u{1F948}' : '\u{1F949}'}
+                </span>
+                <span className="flex-1 text-left font-bold text-sm text-gray-900">{p.name}</span>
+                <span className="font-extrabold text-tennis-700 text-sm">{p.points}pkt</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        <button
+          onClick={onEndTournament}
+          className="btn-success w-full py-4 text-lg"
+        >
+          <span className="flex items-center justify-center gap-2">
+            <span aria-hidden="true">{'\u{1F3C6}'}</span>
+            Zakończ turniej
+          </span>
+        </button>
+        <button
+          onClick={onAddRound}
+          className="btn-secondary w-full py-4"
+        >
+          <span className="flex items-center justify-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Dodaj kolejną rundę
+          </span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ----------- Main component -----------
+
 export function CurrentMatch({ onPlayerClick }) {
-  const { matches, players, currentMatchIndex, settings, recordScore, status, gameType, addSparringMatch, endTournament } = useTournamentStore();
+  const {
+    matches, players, currentMatchIndex, settings,
+    recordScore, recordBatchScores, status, gameType,
+    addSparringMatch, endTournament, addRound
+  } = useTournamentStore();
   const isSparring = gameType === 'sparring';
+  const isTournament = gameType === 'tournament';
 
   const currentMatch = matches[currentMatchIndex];
   const completedCount = useMemo(() => matches.filter((m) => m.completed).length, [matches]);
+  const allMatchesCompleted = useMemo(() => matches.length > 0 && matches.every(m => m.completed), [matches]);
   const playerMap = usePlayerMap(players);
 
   const [showConfetti, setShowConfetti] = useState(false);
   const [saveAnimation, setSaveAnimation] = useState(false);
   const [undoData, setUndoData] = useState(null);
+  const [showBatchInput, setShowBatchInput] = useState(false);
   // Track which player won the last saved match for avatar pulse
   const [winnerPulseId, setWinnerPulseId] = useState(null);
 
   const player1 = playerMap.get(currentMatch?.player1Id);
   const player2 = playerMap.get(currentMatch?.player2Id);
+
+  // For sparring, always use the first two players for names in H2H
+  const sparringP1 = isSparring && players.length >= 2 ? players[0] : null;
+  const sparringP2 = isSparring && players.length >= 2 ? players[1] : null;
 
   const stats1 = useMemo(
     () => calculatePlayerStats(player1?.id, players, matches, settings),
@@ -180,28 +355,46 @@ export function CurrentMatch({ onPlayerClick }) {
     setUndoData(null);
   }, [undoData, recordScore]);
 
+  const handleBatchSave = useCallback((scores) => {
+    if (scores && scores.length > 0) {
+      recordBatchScores(scores);
+    }
+    setShowBatchInput(false);
+  }, [recordBatchScores]);
+
+  // ----------- Tournament mode: all matches done but not yet "completed" -----------
+  if (isTournament && allMatchesCompleted && status === 'active') {
+    return (
+      <TournamentAllDone
+        standings={standings}
+        onEndTournament={endTournament}
+        onAddRound={addRound}
+      />
+    );
+  }
+
   if (status === 'completed') {
     // Sparring completed
-    if (isSparring && player1 && player2 && stats1 && stats2) {
-      const winner = stats1.won > stats2.won ? player1 : stats2.won > stats1.won ? player2 : null;
+    if (isSparring && sparringP1 && sparringP2 && stats1 && stats2) {
+      const winner = stats1.won > stats2.won ? sparringP1 : stats2.won > stats1.won ? sparringP2 : null;
       return (
-        <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="polite">
+        <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in overflow-y-auto" aria-live="polite">
           <div className="text-5xl mb-4" aria-hidden="true">{'\u{1F3BE}'}</div>
           <h2 className="text-2xl font-extrabold text-gray-900 mb-4">
             Sparring zakończony!
           </h2>
           <div className="flex items-center gap-6 mb-4">
             <div className="text-center">
-              <PlayerAvatar name={player1.name} size="lg" className={winner === player1 ? 'ring-4 ring-tennis-400' : ''} />
-              <p className="font-bold mt-2 text-gray-900">{player1.name}</p>
+              <PlayerAvatar name={sparringP1.name} size="lg" className={winner === sparringP1 ? 'ring-4 ring-tennis-400' : ''} />
+              <p className="font-bold mt-2 text-gray-900">{sparringP1.name}</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-extrabold text-gray-900">{stats1.won}:{stats2.won}</p>
               <p className="text-xs text-gray-600">meczów</p>
             </div>
             <div className="text-center">
-              <PlayerAvatar name={player2.name} size="lg" className={winner === player2 ? 'ring-4 ring-tennis-400' : ''} />
-              <p className="font-bold mt-2 text-gray-900">{player2.name}</p>
+              <PlayerAvatar name={sparringP2.name} size="lg" className={winner === sparringP2 ? 'ring-4 ring-tennis-400' : ''} />
+              <p className="font-bold mt-2 text-gray-900">{sparringP2.name}</p>
             </div>
           </div>
           {winner && <p className="text-tennis-600 font-bold text-lg mb-4">Wygrywa {winner.name}!</p>}
@@ -217,7 +410,7 @@ export function CurrentMatch({ onPlayerClick }) {
                     <div key={match.id} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl text-sm">
                       <span className="text-gray-400 text-xs w-5 shrink-0">#{idx + 1}</span>
                       <span className={`flex-1 text-right ${match.score1 > match.score2 ? 'font-bold text-tennis-700' : 'text-gray-600'}`}>
-                        {player1?.name}
+                        {sparringP1?.name}
                       </span>
                       <span className="font-mono font-bold text-gray-900 px-1">
                         {match.sets?.length > 0
@@ -226,7 +419,7 @@ export function CurrentMatch({ onPlayerClick }) {
                         }
                       </span>
                       <span className={`flex-1 text-left ${match.score2 > match.score1 ? 'font-bold text-tennis-700' : 'text-gray-600'}`}>
-                        {player2?.name}
+                        {sparringP2?.name}
                       </span>
                     </div>
                   );
@@ -234,6 +427,9 @@ export function CurrentMatch({ onPlayerClick }) {
               </div>
             </div>
           )}
+
+          {/* H2H cross-session section */}
+          <H2HSection player1Name={sparringP1?.name} player2Name={sparringP2?.name} compact={false} />
         </section>
       );
     }
@@ -281,7 +477,7 @@ export function CurrentMatch({ onPlayerClick }) {
 
   if (sparringMatchDone) {
     return (
-      <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="polite">
+      <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in overflow-y-auto" aria-live="polite">
         <div className="text-5xl mb-4" aria-hidden="true">{'\u{2705}'}</div>
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
           Wynik zapisany!
@@ -294,7 +490,7 @@ export function CurrentMatch({ onPlayerClick }) {
             ({currentMatch.sets.map(s => `${s[0]}:${s[1]}`).join(', ')})
           </p>
         )}
-        <div className="flex items-center gap-6 mb-8">
+        <div className="flex items-center gap-6 mb-4">
           <div className="text-center">
             <PlayerAvatar name={player1?.name} size="md" />
             <p className="font-bold mt-1 text-sm">{stats1?.won}W {stats1?.draws > 0 ? `${stats1.draws}D ` : ''}{stats1?.lost}L</p>
@@ -304,7 +500,11 @@ export function CurrentMatch({ onPlayerClick }) {
             <p className="font-bold mt-1 text-sm">{stats2?.won}W {stats2?.draws > 0 ? `${stats2.draws}D ` : ''}{stats2?.lost}L</p>
           </div>
         </div>
-        <div className="flex gap-3 w-full max-w-xs">
+
+        {/* Compact H2H */}
+        <H2HSection player1Name={sparringP1?.name} player2Name={sparringP2?.name} compact={true} />
+
+        <div className="flex gap-3 w-full max-w-xs mt-6">
           <button onClick={addSparringMatch} className="btn-success flex-1">
             Następny mecz
           </button>
@@ -332,6 +532,16 @@ export function CurrentMatch({ onPlayerClick }) {
   return (
     <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Confetti show={showConfetti} />
+
+      {/* Batch Score Input Modal */}
+      {showBatchInput && (
+        <BatchScoreInput
+          player1Name={player1?.name}
+          player2Name={player2?.name}
+          onSave={handleBatchSave}
+          onCancel={() => setShowBatchInput(false)}
+        />
+      )}
 
       {/* Progress Section */}
       <div className="px-5 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-100">
@@ -428,6 +638,19 @@ export function CurrentMatch({ onPlayerClick }) {
               player2Name={player2?.name}
             />
           </div>
+
+          {/* Batch input button (sparring only) */}
+          {isSparring && (
+            <button
+              onClick={() => setShowBatchInput(true)}
+              className="w-full mt-3 py-3 min-h-[44px] text-sm font-medium text-tennis-700 hover:text-tennis-800 bg-tennis-50 hover:bg-tennis-100 rounded-xl border border-tennis-200 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              Wpisz wiele wyników
+            </button>
+          )}
         </section>
 
         {/* Resting Players */}

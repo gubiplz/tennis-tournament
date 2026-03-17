@@ -3,91 +3,276 @@ import { useNavigate } from 'react-router-dom';
 import { useTournamentStore } from '../../store/tournamentStore';
 import { storageService } from '../../services/storageService';
 
-function PlayerStatsSection({ tournaments }) {
-  const stats = useMemo(() => {
-    const playerMap = new Map();
+// Guard import of elo.js — may not exist yet or may fail
+let calculateEloRankings = null;
+try {
+  const eloModule = await import('../../utils/elo.js');
+  calculateEloRankings = eloModule.calculateEloRankings;
+} catch {
+  // elo.js not available — EloRankingSection won't render
+}
 
-    for (const t of tournaments) {
-      if (!t.players || !t.matches) continue;
-      const pMap = new Map(t.players.map(p => [p.id, p.name]));
+const POLISH_MONTHS = [
+  'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+  'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'
+];
 
-      for (const m of t.matches) {
-        if (!m.completed) continue;
-
-        const p1Name = pMap.get(m.player1Id);
-        const p2Name = pMap.get(m.player2Id);
-        if (!p1Name || !p2Name) continue;
-
-        for (const [name, isP1] of [[p1Name, true], [p2Name, false]]) {
-          if (!playerMap.has(name)) {
-            playerMap.set(name, { name, played: 0, won: 0, lost: 0, lastPlayed: null });
-          }
-          const s = playerMap.get(name);
-          s.played++;
-          const myScore = isP1 ? m.score1 : m.score2;
-          const opScore = isP1 ? m.score2 : m.score1;
-          if (myScore > opScore) s.won++;
-          else if (opScore > myScore) s.lost++;
-
-          const matchDate = m.completedAt || t.createdAt;
-          if (matchDate && (!s.lastPlayed || matchDate > s.lastPlayed)) {
-            s.lastPlayed = matchDate;
-          }
-        }
-      }
+/**
+ * Helper: get all months that have at least one completed match, as {year, month} objects.
+ * Sorted newest first.
+ */
+function getAvailableMonths(tournaments) {
+  const monthSet = new Set();
+  for (const t of tournaments) {
+    if (!t.matches) continue;
+    for (const m of t.matches) {
+      if (!m.completed) continue;
+      const dateStr = m.completedAt || t.createdAt;
+      if (!dateStr) continue;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) continue;
+      monthSet.add(`${d.getFullYear()}-${d.getMonth()}`);
     }
+  }
+  return Array.from(monthSet)
+    .map(key => {
+      const [year, month] = key.split('-').map(Number);
+      return { year, month };
+    })
+    .sort((a, b) => b.year - a.year || b.month - a.month);
+}
 
-    return Array.from(playerMap.values())
-      .sort((a, b) => b.played - a.played)
-      .slice(0, 10);
-  }, [tournaments]);
+/**
+ * Helper: get completed matches filtered by month.
+ * Returns array of { p1Name, p2Name, score1, score2 } with names normalized for aggregation.
+ */
+function getMatchesForMonth(tournaments, year, month) {
+  const matches = [];
+  for (const t of tournaments) {
+    if (!t.players || !t.matches) continue;
+    const pMap = new Map(t.players.map(p => [p.id, p.name]));
 
-  if (stats.length === 0) return null;
+    for (const m of t.matches) {
+      if (!m.completed) continue;
+      const dateStr = m.completedAt || t.createdAt;
+      if (!dateStr) continue;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) continue;
+      if (d.getFullYear() !== year || d.getMonth() !== month) continue;
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.floor((now - d) / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'Dziś';
-    if (diffDays === 1) return 'Wczoraj';
-    if (diffDays < 7) return `${diffDays} dni temu`;
-    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-  };
+      const p1Name = pMap.get(m.player1Id);
+      const p2Name = pMap.get(m.player2Id);
+      if (!p1Name || !p2Name) continue;
+
+      matches.push({
+        p1Name,
+        p2Name,
+        score1: m.score1,
+        score2: m.score2
+      });
+    }
+  }
+  return matches;
+}
+
+/**
+ * Aggregate player stats from a list of matches.
+ * Players are aggregated by name (case-insensitive, trimmed).
+ */
+function aggregatePlayerStats(matches) {
+  const playerMap = new Map();
+
+  for (const m of matches) {
+    for (const [rawName, isP1] of [[m.p1Name, true], [m.p2Name, false]]) {
+      const key = rawName.trim().toLowerCase();
+      if (!playerMap.has(key)) {
+        playerMap.set(key, { name: rawName.trim(), played: 0, won: 0, lost: 0 });
+      }
+      const s = playerMap.get(key);
+      // Keep the most "original" name (first seen)
+      s.played++;
+      const myScore = isP1 ? m.score1 : m.score2;
+      const opScore = isP1 ? m.score2 : m.score1;
+      if (myScore > opScore) s.won++;
+      else if (opScore > myScore) s.lost++;
+    }
+  }
+
+  return Array.from(playerMap.values()).sort((a, b) => b.played - a.played);
+}
+
+function polishMatchesLabel(count) {
+  if (count === 1) return '1 mecz';
+  if (count >= 2 && count <= 4) return `${count} mecze`;
+  return `${count} meczów`;
+}
+
+// ----------- MonthlyStatsSection -----------
+
+function MonthlyStatsSection({ tournaments }) {
+  const availableMonths = useMemo(() => getAvailableMonths(tournaments), [tournaments]);
+  const [monthIndex, setMonthIndex] = useState(0);
+
+  if (availableMonths.length === 0) return null;
+
+  const currentMonth = availableMonths[monthIndex];
+  const prevMonth = availableMonths[monthIndex + 1] || null;
+
+  const currentMatches = getMatchesForMonth(tournaments, currentMonth.year, currentMonth.month);
+  const prevMatches = prevMonth ? getMatchesForMonth(tournaments, prevMonth.year, prevMonth.month) : [];
+
+  const stats = aggregatePlayerStats(currentMatches);
+  const totalMatches = currentMatches.length;
+  const prevTotalMatches = prevMatches.length;
+  const diff = totalMatches - prevTotalMatches;
+
+  const canGoLeft = monthIndex < availableMonths.length - 1;
+  const canGoRight = monthIndex > 0;
+
+  const monthLabel = `${POLISH_MONTHS[currentMonth.month]} ${currentMonth.year}`;
 
   return (
-    <section className="mb-6" aria-label="Statystyki graczy">
+    <section className="mb-6" aria-label="Statystyki miesięczne">
       <h2 className="text-tennis-200 text-sm font-semibold uppercase tracking-wider mb-3 px-1">
-        Statystyki graczy
+        Statystyki miesięczne
       </h2>
       <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
-          <span>Gracz</span>
-          <span className="text-center">Mecze</span>
-          <span className="text-center">W-L</span>
-          <span className="text-right">Ostatnio</span>
+        {/* Month navigation header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <button
+            onClick={() => setMonthIndex(i => i + 1)}
+            disabled={!canGoLeft}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white disabled:opacity-20 transition-colors"
+            aria-label="Poprzedni miesiąc"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="text-center">
+            <span className="text-white font-bold text-sm">{monthLabel}</span>
+          </div>
+          <button
+            onClick={() => setMonthIndex(i => i - 1)}
+            disabled={!canGoRight}
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white disabled:opacity-20 transition-colors"
+            aria-label="Następny miesiąc"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
-        {stats.map((p, i) => (
+
+        {/* Total matches summary */}
+        <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+          <span className="text-white font-bold text-lg">{polishMatchesLabel(totalMatches)}</span>
+          {prevMonth && diff !== 0 && (
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+              diff > 0 ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'
+            }`}>
+              {diff > 0 ? `+${diff} więcej` : `${diff} mniej`}
+            </span>
+          )}
+        </div>
+
+        {/* Player table */}
+        {stats.length > 0 && (
+          <>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
+              <span>Gracz</span>
+              <span className="text-center">Mecze</span>
+              <span className="text-center">W-L</span>
+            </div>
+            {stats.map((p, i) => (
+              <div
+                key={p.name}
+                className={`grid grid-cols-[1fr_auto_auto] gap-x-3 px-4 py-2.5 items-center ${
+                  i < stats.length - 1 ? 'border-b border-white/5' : ''
+                }`}
+              >
+                <span className="text-white font-medium text-sm truncate">{p.name}</span>
+                <span className="text-white text-sm text-center font-bold">{p.played}</span>
+                <span className="text-sm text-center">
+                  <span className="text-green-300">{p.won}</span>
+                  <span className="text-white/40">-</span>
+                  <span className="text-red-300">{p.lost}</span>
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ----------- EloRankingSection -----------
+
+function EloRankingSection({ tournaments }) {
+  const rankings = useMemo(() => {
+    if (!calculateEloRankings) return [];
+    try {
+      return calculateEloRankings(tournaments);
+    } catch {
+      return [];
+    }
+  }, [tournaments]);
+
+  // Only show if 2+ players have ratings
+  if (rankings.length < 2) return null;
+
+  const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}']; // gold, silver, bronze
+
+  return (
+    <section className="mb-6" aria-label="Ranking Elo">
+      <h2 className="text-tennis-200 text-sm font-semibold uppercase tracking-wider mb-3 px-1">
+        Ranking Elo
+      </h2>
+      <div className="bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 overflow-hidden">
+        <div className="grid grid-cols-[auto_1fr_auto_auto] gap-x-3 px-4 py-2 text-xs text-tennis-200 font-semibold uppercase tracking-wider border-b border-white/10">
+          <span className="text-center w-8">#</span>
+          <span>Gracz</span>
+          <span className="text-center">Elo</span>
+          <span className="text-center">Zmiana</span>
+        </div>
+        {rankings.map((p, i) => (
           <div
             key={p.name}
-            className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-4 py-2.5 items-center ${
-              i < stats.length - 1 ? 'border-b border-white/5' : ''
+            className={`grid grid-cols-[auto_1fr_auto_auto] gap-x-3 px-4 py-2.5 items-center ${
+              i < rankings.length - 1 ? 'border-b border-white/5' : ''
             }`}
           >
-            <span className="text-white font-medium text-sm truncate">{p.name}</span>
-            <span className="text-white text-sm text-center font-bold">{p.played}</span>
-            <span className="text-sm text-center">
-              <span className="text-green-300">{p.won}</span>
-              <span className="text-white/40">-</span>
-              <span className="text-red-300">{p.lost}</span>
+            <span className="text-center w-8 text-sm" aria-label={`Pozycja ${i + 1}`}>
+              {i < 3 ? (
+                <span aria-hidden="true">{medals[i]}</span>
+              ) : (
+                <span className="text-white/60 font-bold">{i + 1}</span>
+              )}
             </span>
-            <span className="text-tennis-200 text-xs text-right whitespace-nowrap">{formatDate(p.lastPlayed)}</span>
+            <span className="text-white font-medium text-sm truncate">{p.name}</span>
+            <span className="text-white text-sm text-center font-bold">{p.elo}</span>
+            <span className={`text-xs text-center font-semibold whitespace-nowrap ${
+              p.change > 0 ? 'text-green-300' : p.change < 0 ? 'text-red-300' : 'text-white/40'
+            }`}>
+              {p.change > 0 && (
+                <>{'\u2191'}+{p.change}</>
+              )}
+              {p.change < 0 && (
+                <>{'\u2193'}{p.change}</>
+              )}
+              {p.change === 0 && (
+                <span>-</span>
+              )}
+            </span>
           </div>
         ))}
       </div>
     </section>
   );
 }
+
+// ----------- TournamentCard -----------
 
 function TournamentCard({ tournament, onSelect, isLoading }) {
   const isActive = tournament.status === 'active';
@@ -167,6 +352,8 @@ function TournamentCard({ tournament, onSelect, isLoading }) {
     </button>
   );
 }
+
+// ----------- TournamentList (main export) -----------
 
 export function TournamentList() {
   const navigate = useNavigate();
@@ -251,9 +438,14 @@ export function TournamentList() {
           </button>
         </div>
 
-        {/* Player stats */}
+        {/* Monthly stats */}
         {!loading && tournaments.length > 0 && (
-          <PlayerStatsSection tournaments={tournaments} />
+          <MonthlyStatsSection tournaments={tournaments} />
+        )}
+
+        {/* Elo ranking */}
+        {!loading && tournaments.length > 0 && (
+          <EloRankingSection tournaments={tournaments} />
         )}
 
         {/* Loading -- skeleton cards */}

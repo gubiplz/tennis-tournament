@@ -5,6 +5,8 @@ import { calculateMatchCount, estimateDuration } from '../../utils/roundRobin';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../../constants/tournament';
 
 const DRAFT_KEY = 'tennis-tournament-draft';
+const MIN_ROUNDS = 1;
+const MAX_ROUNDS = 5;
 
 function getTodayDate() {
   return new Date().toLocaleDateString('pl-PL');
@@ -15,7 +17,7 @@ function loadDraft(defaultPlayers) {
     const saved = sessionStorage.getItem(DRAFT_KEY);
     if (saved) return JSON.parse(saved);
   } catch { /* ignore */ }
-  return { name: '', location: '', date: getTodayDate(), players: defaultPlayers.join('\n') };
+  return { name: '', location: '', date: getTodayDate(), players: defaultPlayers.join('\n'), numberOfRounds: 1 };
 }
 
 function saveDraft(data) {
@@ -30,6 +32,12 @@ function clearDraft() {
   } catch { /* ignore */ }
 }
 
+function polishRoundsLabel(n) {
+  if (n === 1) return '1 runda';
+  if (n >= 2 && n <= 4) return `${n} rundy`;
+  return `${n} rund`;
+}
+
 export function TournamentSetup() {
   const store = useTournamentStore();
   const { startTournament, getDefaultPlayers } = store;
@@ -40,13 +48,14 @@ export function TournamentSetup() {
   const [tournamentLocation, setTournamentLocation] = useState(draft.location);
   const [tournamentDate, setTournamentDate] = useState(draft.date || getTodayDate());
   const [playersText, setPlayersText] = useState(draft.players);
+  const [numberOfRounds, setNumberOfRounds] = useState(draft.numberOfRounds || 1);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Persist draft to sessionStorage
   useEffect(() => {
-    saveDraft({ name: tournamentName, location: tournamentLocation, date: tournamentDate, players: playersText });
-  }, [tournamentName, tournamentLocation, tournamentDate, playersText]);
+    saveDraft({ name: tournamentName, location: tournamentLocation, date: tournamentDate, players: playersText, numberOfRounds });
+  }, [tournamentName, tournamentLocation, tournamentDate, playersText, numberOfRounds]);
 
   const players = playersText
     .split('\n')
@@ -56,8 +65,9 @@ export function TournamentSetup() {
   const uniquePlayers = [...new Set(players)];
   const duplicates = players.length - uniquePlayers.length;
 
-  const matchCount = uniquePlayers.length >= 2 ? calculateMatchCount(uniquePlayers.length) : 0;
-  const duration = matchCount > 0 ? estimateDuration(matchCount) : '';
+  const baseMatchCount = uniquePlayers.length >= 2 ? calculateMatchCount(uniquePlayers.length) : 0;
+  const totalMatchCount = baseMatchCount * numberOfRounds;
+  const duration = totalMatchCount > 0 ? estimateDuration(totalMatchCount) : '';
 
   const handleStart = () => {
     if (uniquePlayers.length < 3) {
@@ -75,7 +85,7 @@ export function TournamentSetup() {
 
     setIsLoading(true);
     setTimeout(() => {
-      startTournament(uniquePlayers, tournamentName, tournamentLocation, tournamentDate, 'tournament');
+      startTournament(uniquePlayers, tournamentName, tournamentLocation, tournamentDate, 'tournament', numberOfRounds);
       clearDraft();
       // After starting, the store has the new tournament id
       const id = useTournamentStore.getState().id;
@@ -222,32 +232,69 @@ export function TournamentSetup() {
                   aria-invalid={!!error}
                   aria-describedby={error ? 'form-error' : undefined}
                 />
+              </div>
 
-                {/* Stats preview */}
-                {uniquePlayers.length >= 2 && (
-                  <div className="mt-3 p-4 bg-gradient-to-r from-tennis-50 to-tennis-100 rounded-2xl border border-tennis-200 slide-up">
-                    <div className="flex items-center gap-3 text-tennis-800">
-                      <div className="w-10 h-10 bg-tennis-200 rounded-xl flex items-center justify-center">
-                        <span role="img" aria-label="Wykres">&#128200;</span>
-                      </div>
-                      <div>
-                        <div className="font-bold">
-                          {uniquePlayers.length} graczy
-                        </div>
-                        <div className="text-sm text-tennis-600">
-                          {matchCount} meczów &bull; ok. {duration}
-                        </div>
-                      </div>
-                    </div>
-                    {duplicates > 0 && (
-                      <div className="flex items-center gap-2 mt-3 text-sm text-orange-600 bg-orange-50 p-2 rounded-lg">
-                        <span role="img" aria-label="Uwaga">&#9888;&#65039;</span>
-                        <span>{duplicates} duplikat(ów) zostanie usunięty</span>
-                      </div>
-                    )}
+              {/* Number of rounds stepper */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <span className="flex items-center gap-2">
+                    <span role="img" aria-label="Runda">&#128260;</span>
+                    Liczba rund
+                  </span>
+                </label>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setNumberOfRounds(n => Math.max(MIN_ROUNDS, n - 1))}
+                    disabled={numberOfRounds <= MIN_ROUNDS}
+                    className="w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-lg font-bold text-gray-700 active:scale-95"
+                    aria-label="Zmniejsz liczbę rund"
+                  >
+                    -
+                  </button>
+                  <div className="flex-1 text-center">
+                    <span className="text-2xl font-extrabold text-gray-900">{numberOfRounds}</span>
+                    <p className="text-xs text-gray-500 mt-0.5">{polishRoundsLabel(numberOfRounds)}</p>
                   </div>
+                  <button
+                    onClick={() => setNumberOfRounds(n => Math.min(MAX_ROUNDS, n + 1))}
+                    disabled={numberOfRounds >= MAX_ROUNDS}
+                    className="w-12 h-12 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border-2 border-gray-200 bg-gray-50 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-lg font-bold text-gray-700 active:scale-95"
+                    aria-label="Zwiększ liczbę rund"
+                  >
+                    +
+                  </button>
+                </div>
+                {numberOfRounds > 1 && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Każda para zagra {numberOfRounds} razy (round-robin x{numberOfRounds})
+                  </p>
                 )}
               </div>
+
+              {/* Stats preview */}
+              {uniquePlayers.length >= 2 && (
+                <div className="p-4 bg-gradient-to-r from-tennis-50 to-tennis-100 rounded-2xl border border-tennis-200 slide-up">
+                  <div className="flex items-center gap-3 text-tennis-800">
+                    <div className="w-10 h-10 bg-tennis-200 rounded-xl flex items-center justify-center">
+                      <span role="img" aria-label="Wykres">&#128200;</span>
+                    </div>
+                    <div>
+                      <div className="font-bold">
+                        {uniquePlayers.length} graczy{numberOfRounds > 1 ? ` \u00B7 ${polishRoundsLabel(numberOfRounds)}` : ''}
+                      </div>
+                      <div className="text-sm text-tennis-600">
+                        {totalMatchCount} meczów &bull; ok. {duration}
+                      </div>
+                    </div>
+                  </div>
+                  {duplicates > 0 && (
+                    <div className="flex items-center gap-2 mt-3 text-sm text-orange-600 bg-orange-50 p-2 rounded-lg">
+                      <span role="img" aria-label="Uwaga">&#9888;&#65039;</span>
+                      <span>{duplicates} duplikat(ów) zostanie usunięty</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Error */}
               {error && (
