@@ -68,6 +68,8 @@
     overflow: hidden;
     transform: translateZ(0);
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .btn::before {

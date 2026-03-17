@@ -142,13 +142,21 @@ export const storageService = {
    * Calls `onUpdate(mappedData)` whenever an UPDATE event arrives.
    * Returns void — use `unsubscribeFromTournament()` to clean up.
    */
+  // Store callback and tournamentId for reconnection
+  _realtimeCallback: null,
+  _realtimeTournamentId: null,
+
   subscribeToTournament(tournamentId, onUpdate) {
     if (!isSupabaseConfigured() || !tournamentId) return;
+
+    // Store for reconnection
+    this._realtimeCallback = onUpdate;
+    this._realtimeTournamentId = tournamentId;
 
     // Clean up any previous subscription first
     this.unsubscribeFromTournament();
 
-    const channelName = `tournament-${tournamentId}`;
+    const channelName = `tournament-${tournamentId}-${Date.now()}`;
 
     _activeChannel = supabase
       .channel(channelName)
@@ -170,16 +178,33 @@ export const storageService = {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log(`[Realtime] Subscribed to tournament ${tournamentId}`);
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error(`[Realtime] Channel error for tournament ${tournamentId}`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn(`[Realtime] ${status} — will retry on next visibility change`);
+          // Clean up broken channel
+          if (_activeChannel) {
+            supabase.removeChannel(_activeChannel);
+            _activeChannel = null;
+          }
         }
       });
+  },
+
+  /**
+   * Reconnect realtime if we have a stored callback (e.g., after mobile resume).
+   */
+  reconnectRealtime() {
+    if (this._realtimeTournamentId && this._realtimeCallback) {
+      console.log('[Realtime] Reconnecting...');
+      this.subscribeToTournament(this._realtimeTournamentId, this._realtimeCallback);
+    }
   },
 
   /**
    * Unsubscribe from any active realtime channel.
    */
   unsubscribeFromTournament() {
+    this._realtimeCallback = null;
+    this._realtimeTournamentId = null;
     if (_activeChannel) {
       supabase.removeChannel(_activeChannel);
       _activeChannel = null;

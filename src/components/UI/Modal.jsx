@@ -102,7 +102,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }) {
           relative w-full ${sizeClasses[size]}
           bg-white/95 backdrop-blur-xl
           rounded-t-3xl sm:rounded-3xl
-          max-h-[90vh] overflow-hidden flex flex-col
+          max-h-[90dvh] overflow-hidden flex flex-col
           shadow-2xl
           border border-white/50
           modal-content

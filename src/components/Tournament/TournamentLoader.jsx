@@ -49,10 +49,15 @@ export function TournamentLoader({ children }) {
     };
   }, [id, storeId, loadTournamentFromDb]);
 
-  // Clean up realtime subscription when navigating away from the tournament
+  // Clean up realtime subscription only when navigating to a DIFFERENT route
+  // (not on React StrictMode remount or mobile page suspend)
   useEffect(() => {
     return () => {
-      storageService.unsubscribeFromTournament();
+      // Only unsubscribe if the store is going back to dashboard
+      const state = useTournamentStore.getState();
+      if (state.status === 'dashboard' || state.status === 'setup') {
+        storageService.unsubscribeFromTournament();
+      }
     };
   }, []);
 

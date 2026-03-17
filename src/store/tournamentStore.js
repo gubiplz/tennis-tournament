@@ -703,3 +703,20 @@ useTournamentStore.subscribe((state, prevState) => {
     }, 1000);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Reconnect Realtime when page comes back from background (mobile Safari/Brave)
+// ---------------------------------------------------------------------------
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const state = useTournamentStore.getState();
+      if (state.id && state.status !== 'dashboard' && state.status !== 'setup') {
+        // Re-subscribe to realtime — mobile browsers kill WebSockets in background
+        storageService.reconnectRealtime();
+        // Also re-sync from Supabase to catch any missed updates
+        state._syncToSupabase();
+      }
+    }
+  });
+}

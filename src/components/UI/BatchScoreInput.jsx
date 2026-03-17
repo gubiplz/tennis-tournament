@@ -88,7 +88,7 @@ export function BatchScoreInput({ player1Name, player2Name, onSave, onCancel }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Wpisz wiele wyników">
-      <div className="w-full max-w-md max-h-[90vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden slide-up safe-bottom">
+      <div className="w-full max-w-md max-h-[90dvh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden slide-up safe-bottom">
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-gray-100 shrink-0">
           <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
