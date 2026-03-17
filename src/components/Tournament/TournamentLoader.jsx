@@ -16,12 +16,16 @@ export function TournamentLoader({ children }) {
   const storeId = useTournamentStore((s) => s.id);
   const loadTournamentFromDb = useTournamentStore((s) => s.loadTournamentFromDb);
 
-  const [loading, setLoading] = useState(false);
+  const needsLoad = storeId !== id;
+  const [loading, setLoading] = useState(needsLoad);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     // Already loaded in store
-    if (storeId === id) return;
+    if (storeId === id) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
