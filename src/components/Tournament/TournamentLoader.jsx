@@ -22,10 +22,7 @@ export function TournamentLoader({ children }) {
 
   useEffect(() => {
     // Already loaded in store
-    if (storeId === id) {
-      setLoading(false);
-      return;
-    }
+    if (storeId === id) return;
 
     let cancelled = false;
 

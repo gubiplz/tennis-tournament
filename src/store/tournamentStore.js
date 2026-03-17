@@ -708,15 +708,51 @@ useTournamentStore.subscribe((state, prevState) => {
 // Reconnect Realtime when page comes back from background (mobile Safari/Brave)
 // ---------------------------------------------------------------------------
 if (typeof document !== 'undefined') {
+  // Pull latest data from Supabase and apply if newer
+  async function _pullFromSupabase() {
+    const state = useTournamentStore.getState();
+    if (!state.id || state.status === 'dashboard' || state.status === 'setup') return;
+    try {
+      const remote = await storageService.loadTournament(state.id);
+      if (!remote) return;
+      const remoteLogLen = remote.changeLog?.length || 0;
+      const localLogLen = state.changeLog?.length || 0;
+      // Apply if remote has more data
+      if (remoteLogLen > localLogLen) {
+        _ignoringRealtime = true;
+        useTournamentStore.setState({
+          matches: remote.matches,
+          currentMatchIndex: remote.currentMatchIndex,
+          status: remote.status,
+          players: remote.players,
+          settings: remote.settings,
+          changeLog: remote.changeLog,
+          _realtimeToast: true
+        });
+        setTimeout(() => { _ignoringRealtime = false; }, 2000);
+      }
+    } catch (err) {
+      console.error('[Pull] Failed:', err);
+    }
+  }
+
+  // Reconnect + pull when page comes back from background
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
       const state = useTournamentStore.getState();
       if (state.id && state.status !== 'dashboard' && state.status !== 'setup') {
-        // Re-subscribe to realtime — mobile browsers kill WebSockets in background
         storageService.reconnectRealtime();
-        // Also re-sync from Supabase to catch any missed updates
-        state._syncToSupabase();
+        // Pull latest data in case WebSocket missed updates while in background
+        _pullFromSupabase();
       }
     }
   });
+
+  // Fallback polling every 10s for mobile browsers where WebSocket is unreliable
+  setInterval(() => {
+    const state = useTournamentStore.getState();
+    if (!document.hidden && state.id && state.status !== 'dashboard' && state.status !== 'setup') {
+      _pullFromSupabase();
+    }
+  }, 10000);
 }
