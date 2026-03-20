@@ -45,8 +45,7 @@ function startWith(names, opts = {}) {
     opts.name || '',
     opts.location || '',
     opts.date || '',
-    opts.gameType || undefined,
-    opts.numberOfRounds || undefined
+    opts.gameType || undefined
   );
   return getState();
 }
@@ -1043,66 +1042,25 @@ describe('tournamentStore', () => {
   });
 
   // =========================================================================
-  // 9. startTournament with numberOfRounds
+  // 9. startTournament always creates single round-robin
   // =========================================================================
-  describe('startTournament with numberOfRounds', () => {
-    it('with numberOfRounds=1 creates standard round-robin (same as default)', () => {
-      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 1 });
-
-      // C(3,2) = 3 matches
-      expect(state.matches).toHaveLength(3);
-    });
-
-    it('with numberOfRounds=2 creates double round-robin', () => {
-      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
-
-      // 3 matches per round * 2 rounds = 6 matches
-      expect(state.matches).toHaveLength(6);
-    });
-
-    it('with numberOfRounds=3 creates triple round-robin', () => {
-      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 3 });
-
-      // 3 matches per round * 3 rounds = 9 matches
-      expect(state.matches).toHaveLength(9);
-    });
-
-    it('match IDs are unique and sequential', () => {
-      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
-
-      const ids = state.matches.map(m => m.id);
-      // Sequential from 1 to 6
-      expect(ids).toEqual([1, 2, 3, 4, 5, 6]);
-    });
-
-    it('each pair appears numberOfRounds times', () => {
-      const state = startWith(['A', 'B', 'C', 'D'], { numberOfRounds: 2 });
-
-      // 6 matches per round * 2 rounds = 12 matches
-      expect(state.matches).toHaveLength(12);
-
-      // Each pair should appear exactly 2 times
-      const pairCounts = {};
-      for (const match of state.matches) {
-        const pair = [match.player1Id, match.player2Id].sort().join('-');
-        pairCounts[pair] = (pairCounts[pair] || 0) + 1;
-      }
-
-      const counts = Object.values(pairCounts);
-      expect(counts.every(c => c === 2)).toBe(true);
-      // C(4,2) = 6 unique pairs
-      expect(Object.keys(pairCounts)).toHaveLength(6);
-    });
-
-    it('without numberOfRounds behaves as single round-robin', () => {
+  describe('startTournament creates single round-robin', () => {
+    it('creates standard round-robin for 3 players', () => {
       const state = startWith(['A', 'B', 'C']);
 
       // C(3,2) = 3 matches
       expect(state.matches).toHaveLength(3);
     });
 
+    it('creates standard round-robin for 4 players', () => {
+      const state = startWith(['A', 'B', 'C', 'D']);
+
+      // C(4,2) = 6 matches
+      expect(state.matches).toHaveLength(6);
+    });
+
     it('all matches start uncompleted', () => {
-      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
+      const state = startWith(['A', 'B', 'C']);
 
       for (const match of state.matches) {
         expect(match.completed).toBe(false);
@@ -1111,24 +1069,21 @@ describe('tournamentStore', () => {
       }
     });
 
-    it('changelog reflects total match count', () => {
-      const state = startWith(['A', 'B', 'C'], { numberOfRounds: 2 });
+    it('additional rounds are added via addRound()', () => {
+      startWith(['A', 'B', 'C']);
+      const { getState } = useTournamentStore;
 
-      expect(state.changeLog[0].details).toContain('6 meczów');
-    });
+      expect(getState().matches).toHaveLength(3);
 
-    it('with 4 players and numberOfRounds=3 creates correct match count', () => {
-      const state = startWith(['A', 'B', 'C', 'D'], { numberOfRounds: 3 });
-
-      // 6 matches per round * 3 rounds = 18 matches
-      expect(state.matches).toHaveLength(18);
-
-      const pairCounts = {};
-      for (const match of state.matches) {
-        const pair = [match.player1Id, match.player2Id].sort().join('-');
-        pairCounts[pair] = (pairCounts[pair] || 0) + 1;
+      // Complete all matches first
+      const matches = getState().matches;
+      for (const match of matches) {
+        getState().recordScore(match.id, 6, 4, [[6, 4]]);
       }
-      expect(Object.values(pairCounts).every(c => c === 3)).toBe(true);
+
+      // Add a new round
+      getState().addRound();
+      expect(getState().matches).toHaveLength(6);
     });
   });
 });

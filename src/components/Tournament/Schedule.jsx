@@ -5,7 +5,15 @@ import { TennisScoreInput } from '../UI/TennisScoreInput';
 import { usePlayerMap } from '../../hooks/usePlayerMap';
 
 export function Schedule({ onPlayerClick }) {
-  const { matches, players, currentMatchIndex, recordScore, goToMatch } = useTournamentStore();
+  const { matches, players, currentMatchIndex, recordScore, goToMatch, status, changeLog } = useTournamentStore();
+
+  // Find when tournament was completed (from changelog) — compute once on mount
+  const [editLocked] = useState(() => {
+    if (status !== 'completed') return false;
+    const endEntry = changeLog?.find(e => e.details?.includes('zakończony'));
+    if (!endEntry) return false;
+    return Date.now() - new Date(endEntry.timestamp).getTime() > 24 * 60 * 60 * 1000;
+  });
   const playerMap = usePlayerMap(players);
 
   const [editingMatch, setEditingMatch] = useState(null);
@@ -212,15 +220,26 @@ export function Schedule({ onPlayerClick }) {
                             </div>
                           )}
                         </div>
-                        <button
-                          onClick={() => openEditModal(match)}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-tennis-700 hover:bg-tennis-50 rounded-lg transition-all duration-200"
-                          aria-label={`Edytuj wynik meczu #${match.id}`}
-                        >
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
+                        {editLocked ? (
+                          <div
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-300"
+                            title="Edycja zablokowana po 24h"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openEditModal(match)}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-tennis-700 hover:bg-tennis-50 rounded-lg transition-all duration-200"
+                            aria-label={`Edytuj wynik meczu #${match.id}`}
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        )}
                       </>
                     ) : (
                       <span className="text-2xl font-bold text-gray-400" aria-hidden="true">-:-</span>

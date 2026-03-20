@@ -174,7 +174,19 @@ function H2HSection({ player1Name, player2Name, compact }) {
 
 // ----------- TournamentAllDone (choice screen for tournament mode) -----------
 
-function TournamentAllDone({ standings, onEndTournament, onAddRound }) {
+function TournamentAllDone({ standings, players, onEndTournament, onAddRound, onAddCustomMatch }) {
+  const [showMatchPicker, setShowMatchPicker] = useState(false);
+
+  const pairs = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        result.push([players[i], players[j]]);
+      }
+    }
+    return result;
+  }, [players]);
+
   return (
     <section className="flex-1 flex flex-col items-center justify-center p-8 text-center fade-in" aria-live="polite">
       <div className="text-5xl mb-4" aria-hidden="true">{'\u{1F3C6}'}</div>
@@ -209,28 +221,67 @@ function TournamentAllDone({ standings, onEndTournament, onAddRound }) {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 w-full max-w-xs">
-        <button
-          onClick={onEndTournament}
-          className="btn-success w-full py-4 text-lg"
-        >
-          <span className="flex items-center justify-center gap-2">
-            <span aria-hidden="true">{'\u{1F3C6}'}</span>
-            Zakończ turniej
-          </span>
-        </button>
-        <button
-          onClick={onAddRound}
-          className="btn-secondary w-full py-4"
-        >
-          <span className="flex items-center justify-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Dodaj kolejną rundę
-          </span>
-        </button>
-      </div>
+      {/* Match pair picker */}
+      {showMatchPicker ? (
+        <div className="w-full max-w-xs mb-2 slide-up">
+          <p className="text-sm font-semibold text-gray-700 mb-3">Wybierz parę:</p>
+          <div className="space-y-2">
+            {pairs.map(([p1, p2]) => (
+              <button
+                key={`${p1.id}-${p2.id}`}
+                onClick={() => { onAddCustomMatch(p1.id, p2.id); setShowMatchPicker(false); }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white hover:border-tennis-300 hover:bg-tennis-50 transition-all active:scale-[0.98]"
+              >
+                <PlayerAvatar name={p1.name} size="sm" />
+                <span className="flex-1 font-medium text-sm text-gray-900">{p1.name}</span>
+                <span className="text-xs text-gray-400 font-bold">vs</span>
+                <span className="flex-1 font-medium text-sm text-gray-900 text-right">{p2.name}</span>
+                <PlayerAvatar name={p2.name} size="sm" />
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setShowMatchPicker(false)}
+            className="mt-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Anuluj
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button
+            onClick={onEndTournament}
+            className="btn-success w-full py-4 text-lg"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <span aria-hidden="true">{'\u{1F3C6}'}</span>
+              Zakończ turniej
+            </span>
+          </button>
+          <button
+            onClick={onAddRound}
+            className="btn-secondary w-full py-4"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Dodaj kolejną rundę
+            </span>
+          </button>
+          <button
+            onClick={() => setShowMatchPicker(true)}
+            className="btn-secondary w-full py-4"
+          >
+            <span className="flex items-center justify-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Dodaj pojedynczy mecz
+            </span>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -241,7 +292,7 @@ export function CurrentMatch({ onPlayerClick }) {
   const {
     matches, players, currentMatchIndex, settings,
     recordScore, recordBatchScores, status, gameType,
-    addSparringMatch, endTournament, addRound,
+    addSparringMatch, endTournament, addRound, addCustomMatch,
     name: tournamentName, date: tournamentDate
   } = useTournamentStore();
   const isSparring = gameType === 'sparring';
@@ -267,12 +318,12 @@ export function CurrentMatch({ onPlayerClick }) {
   const sparringP2 = isSparring && players.length >= 2 ? players[1] : null;
 
   const stats1 = useMemo(
-    () => calculatePlayerStats(player1?.id, players, matches, settings),
-    [player1?.id, players, matches, settings]
+    () => calculatePlayerStats(player1?.id, players, matches, settings, gameType),
+    [player1?.id, players, matches, settings, gameType]
   );
   const stats2 = useMemo(
-    () => calculatePlayerStats(player2?.id, players, matches, settings),
-    [player2?.id, players, matches, settings]
+    () => calculatePlayerStats(player2?.id, players, matches, settings, gameType),
+    [player2?.id, players, matches, settings, gameType]
   );
 
   const restingPlayers = useMemo(
@@ -286,8 +337,8 @@ export function CurrentMatch({ onPlayerClick }) {
   );
 
   const standings = useMemo(
-    () => calculateStandings(players, matches, settings),
-    [players, matches, settings]
+    () => calculateStandings(players, matches, settings, gameType),
+    [players, matches, settings, gameType]
   );
 
   // Fire celebration haptic once when tournament completes
@@ -361,8 +412,10 @@ export function CurrentMatch({ onPlayerClick }) {
     return (
       <TournamentAllDone
         standings={standings}
+        players={players}
         onEndTournament={endTournament}
         onAddRound={addRound}
+        onAddCustomMatch={addCustomMatch}
       />
     );
   }

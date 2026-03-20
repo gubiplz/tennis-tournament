@@ -41,25 +41,26 @@ function StatCard({ value, label, colorClass, delay = 0 }) {
 }
 
 export function PlayerProfile({ playerId, isOpen, onClose }) {
-  const { players, matches, settings, walkoverPlayer } = useTournamentStore();
+  const { players, matches, settings, walkoverPlayer, gameType } = useTournamentStore();
+  const isTournament = gameType === 'tournament';
 
   const player = players.find((p) => p.id === playerId);
 
   const stats = useMemo(
-    () => playerId ? calculatePlayerStats(playerId, players, matches, settings) : null,
-    [playerId, players, matches, settings]
+    () => playerId ? calculatePlayerStats(playerId, players, matches, settings, gameType) : null,
+    [playerId, players, matches, settings, gameType]
   );
   const headToHead = useMemo(
-    () => playerId ? calculateHeadToHead(playerId, players, matches) : [],
-    [playerId, players, matches]
+    () => playerId ? calculateHeadToHead(playerId, players, matches, gameType) : [],
+    [playerId, players, matches, gameType]
   );
   const remainingMatches = useMemo(
     () => playerId ? getRemainingMatches(playerId, players, matches) : [],
     [playerId, players, matches]
   );
   const standings = useMemo(
-    () => calculateStandings(players, matches, settings),
-    [players, matches, settings]
+    () => calculateStandings(players, matches, settings, gameType),
+    [players, matches, settings, gameType]
   );
   const rank = standings.findIndex((s) => s.playerId === playerId) + 1;
 
@@ -130,20 +131,23 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
         {/* Extended Stats */}
         <div className="flex flex-wrap justify-between items-center gap-3 p-4 bg-gray-50 rounded-2xl slide-up" style={{ animationDelay: '0.25s' }}>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">Sety:</span>
+            <span className="text-sm text-gray-500">{isTournament ? 'Gemy:' : 'Sety:'}</span>
             <span className="font-bold text-gray-900">
-              {stats?.setsWon || 0}:{stats?.setsLost || 0}
+              {isTournament
+                ? `${stats?.gemsWon || 0}:${stats?.gemsLost || 0}`
+                : `${stats?.setsWon || 0}:${stats?.setsLost || 0}`
+              }
             </span>
             <span className={`
               px-2 py-0.5 rounded-full text-xs font-bold
-              ${(stats?.setsDiff || 0) > 0
+              ${((isTournament ? stats?.gemsDiff : stats?.setsDiff) || 0) > 0
                 ? 'bg-green-100 text-green-700'
-                : (stats?.setsDiff || 0) < 0
+                : ((isTournament ? stats?.gemsDiff : stats?.setsDiff) || 0) < 0
                   ? 'bg-red-100 text-red-700'
                   : 'bg-gray-200 text-gray-600'
               }
             `}>
-              {(stats?.setsDiff || 0) > 0 ? '+' : ''}{stats?.setsDiff || 0}
+              {((isTournament ? stats?.gemsDiff : stats?.setsDiff) || 0) > 0 ? '+' : ''}{(isTournament ? stats?.gemsDiff : stats?.setsDiff) || 0}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -219,9 +223,21 @@ export function PlayerProfile({ playerId, isOpen, onClose }) {
 
                 {h2h.played ? (
                   <>
-                    <div className="text-xs text-gray-500 mb-2">
-                      Sety: {h2h.setsWon}:{h2h.setsLost}
-                    </div>
+                    {isTournament && h2h.totalGemsPlayer + h2h.totalGemsOpponent > 0 ? (
+                      <div className={`text-xs font-bold mb-2 ${
+                        h2h.gemResult === 'win' ? 'text-green-700' :
+                        h2h.gemResult === 'loss' ? 'text-red-700' : 'text-gray-500'
+                      }`}>
+                        Gemy: {h2h.totalGemsPlayer}:{h2h.totalGemsOpponent}
+                        {h2h.gemResult === 'win' && ' \u2714'}
+                        {h2h.gemResult === 'loss' && ' \u2718'}
+                        {h2h.gemResult === 'draw' && ' ='}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500 mb-2">
+                        Sety: {h2h.setsWon}:{h2h.setsLost}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       {h2h.matches.map((match) => (
                         <span

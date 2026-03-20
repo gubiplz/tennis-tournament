@@ -1,6 +1,6 @@
 /**
- * Generates a premium result card image using HTML5 Canvas API.
- * Clean, minimalist design with proper spacing.
+ * Generates a result card image matching the app's light UI style.
+ * Clean white background, colored player cards with medals, avatar circles.
  */
 
 const AVATAR_HEX = [
@@ -16,6 +16,13 @@ const AVATAR_HEX = [
   ['#818cf8', '#4f46e5'],
   ['#a78bfa', '#7c3aed'],
   ['#fb7185', '#e11d48'],
+];
+
+// Card colors per rank: [bgFill, borderStroke]
+const RANK_COLORS = [
+  ['#fefce8', '#fde047'],  // 1st — yellow
+  ['#f9fafb', '#d1d5db'],  // 2nd — gray
+  ['#fff7ed', '#fdba74'],  // 3rd — orange
 ];
 
 function hashStr(str) {
@@ -34,63 +41,50 @@ function getInitials(name) {
 
 export async function generateResultImage({ gameType, name, date, players, matches, standings }) {
   const W = 1080;
-  const H = 1920;
-  const F = "system-ui, -apple-system, sans-serif";
+  const F = "system-ui, -apple-system, 'Segoe UI', sans-serif";
   const cx = W / 2;
+  const PAD = 80;
+
+  // Calculate dynamic height based on content
+  let estimatedH;
+  if (gameType === 'sparring') {
+    const done = (matches || []).filter(m => m.completed);
+    const matchRows = Math.min(done.length, 10);
+    estimatedH = 900 + matchRows * 70 + 200;
+  } else {
+    const count = Math.min(standings?.length || 0, 10);
+    estimatedH = 650 + count * 160 + 200;
+  }
+  const H = Math.max(1400, Math.min(1920, estimatedH));
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // ── Background ──
+  // ── Light background ──
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#0d3b23');
-  bg.addColorStop(0.5, '#155e3b');
-  bg.addColorStop(1, '#0a2e1a');
+  bg.addColorStop(0, '#f8faf9');
+  bg.addColorStop(0.5, '#ffffff');
+  bg.addColorStop(1, '#f1f5f3');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Glow
-  const gl = ctx.createRadialGradient(cx, H * 0.35, 100, cx, H * 0.35, 600);
-  gl.addColorStop(0, 'rgba(74, 222, 128, 0.08)');
+  // Subtle green accent glow at top
+  const gl = ctx.createRadialGradient(cx, 0, 50, cx, 0, 500);
+  gl.addColorStop(0, 'rgba(22, 163, 74, 0.04)');
   gl.addColorStop(1, 'transparent');
   ctx.fillStyle = gl;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, 400);
 
-  // ── Top accent line ──
-  ctx.fillStyle = '#4ade80';
-  ctx.fillRect(cx - 30, 80, 60, 4);
-
-  // ── Header ──
-  ctx.textAlign = 'center';
-  ctx.font = `300 28px ${F}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.fillText(gameType === 'sparring' ? 'SPARRING' : 'TURNIEJ', cx, 130);
-
-  if (name) {
-    ctx.font = `600 36px ${F}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillText(trunc(ctx, name, W - 200), cx, 178);
-  }
-
+  let endY;
   if (gameType === 'sparring') {
-    drawSparring(ctx, { W, F, players, matches });
+    endY = drawSparring(ctx, { W, H, F, cx, PAD, name, date, players, matches });
   } else {
-    drawTournament(ctx, { W, F, standings });
+    endY = drawTournament(ctx, { W, H, F, cx, PAD, name, date, standings, matches });
   }
 
-  // ── Footer ──
-  const fy = H - 120;
-  ctx.textAlign = 'center';
-  if (date) {
-    ctx.font = `400 26px ${F}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fillText(date, cx, fy);
-  }
-  ctx.font = `500 22px ${F}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.fillText('tennis-turniej.netlify.app', cx, fy + 40);
+  drawFooter(ctx, { W, H, F, cx, endY });
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
@@ -102,11 +96,11 @@ export async function generateResultImage({ gameType, name, date, players, match
 function drawAvatar(ctx, x, y, r, name, F) {
   const [c1, c2] = getColors(name);
 
-  // Shadow
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.3)';
-  ctx.shadowBlur = 20;
-  ctx.shadowOffsetY = 5;
+  ctx.shadowColor = 'rgba(0,0,0,0.12)';
+  ctx.shadowBlur = r * 0.3;
+  ctx.shadowOffsetY = r * 0.08;
+
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   const g = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
@@ -115,13 +109,6 @@ function drawAvatar(ctx, x, y, r, name, F) {
   ctx.fillStyle = g;
   ctx.fill();
   ctx.restore();
-
-  // White ring
-  ctx.beginPath();
-  ctx.arc(x, y, r + 3, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
 
   // Initials
   ctx.font = `700 ${Math.round(r * 0.75)}px ${F}`;
@@ -132,189 +119,289 @@ function drawAvatar(ctx, x, y, r, name, F) {
   ctx.textBaseline = 'alphabetic';
 }
 
+// ── Footer ──
+
+function drawFooter(ctx, { H, F, cx, endY }) {
+  const fy = Math.max(endY + 60, H - 80);
+  ctx.textAlign = 'center';
+  ctx.font = `400 22px ${F}`;
+  ctx.fillStyle = '#b0b8b4';
+  ctx.fillText('tennis-turniej.netlify.app', cx, fy);
+}
+
 // ── Sparring ──
 
-function drawSparring(ctx, { W, F, players, matches }) {
-  const cx = W / 2;
+function drawSparring(ctx, { W, F, cx, PAD, name, date, players, matches }) {
   const p1 = players[0]?.name || 'Gracz 1';
   const p2 = players[1]?.name || 'Gracz 2';
-
   const done = (matches || []).filter(m => m.completed);
   let w1 = 0, w2 = 0;
   done.forEach(m => { if (m.score1 > m.score2) w1++; else if (m.score2 > m.score1) w2++; });
 
-  const sp = 200;
+  let y = 100;
 
-  // ── Avatars ── y=340
-  drawAvatar(ctx, cx - sp, 340, 70, p1, F);
-  drawAvatar(ctx, cx + sp, 340, 70, p2, F);
-
-  // ── Names ── well below avatars
+  // Title
   ctx.textAlign = 'center';
-  ctx.font = `600 38px ${F}`;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(trunc(ctx, p1, 280), cx - sp, 450);
-  ctx.fillText(trunc(ctx, p2, 280), cx + sp, 450);
+  ctx.font = `800 52px ${F}`;
+  ctx.fillStyle = '#111827';
+  ctx.fillText('Sparring', cx, y);
 
-  // ── "vs" ──
-  ctx.font = `300 28px ${F}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillText('vs', cx, 395);
-
-  // ── Score ── centered, big gap from names
-  ctx.font = `800 180px ${F}`;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(`${w1}`, cx - 130, 640);
-
-  ctx.font = `200 120px ${F}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.fillText(':', cx, 620);
-
-  ctx.font = `800 180px ${F}`;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(`${w2}`, cx + 130, 640);
-
-  // ── Winner / Draw ──
-  let wy = 720;
-  if (w1 !== w2) {
-    const winner = w1 > w2 ? p1 : p2;
-    ctx.font = `600 34px ${F}`;
-    ctx.fillStyle = '#4ade80';
-    ctx.fillText(`Wygrywa ${winner}`, cx, wy);
-  } else {
-    ctx.font = `600 34px ${F}`;
-    ctx.fillStyle = '#fbbf24';
-    ctx.fillText('Remis', cx, wy);
+  // Name & date
+  if (name) {
+    y += 45;
+    ctx.font = `500 30px ${F}`;
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText(trunc(ctx, name, W - 200), cx, y);
+  }
+  if (date) {
+    y += 35;
+    ctx.font = `400 26px ${F}`;
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(date, cx, y);
   }
 
-  // ── Thin line ──
-  wy += 50;
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.fillRect(cx - 200, wy, 400, 1);
+  // ── VS Section ──
+  y += 70;
+  const spacing = 210;
 
-  // ── Match results ──
-  wy += 50;
-  ctx.font = `500 22px ${F}`;
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.fillText('WYNIKI MECZÓW', cx, wy);
+  drawAvatar(ctx, cx - spacing, y, 60, p1, F);
+  drawAvatar(ctx, cx + spacing, y, 60, p2, F);
 
-  const maxShow = Math.min(done.length, 8);
+  // "vs"
+  ctx.textAlign = 'center';
+  ctx.font = `300 26px ${F}`;
+  ctx.fillStyle = '#d1d5db';
+  ctx.fillText('vs', cx, y + 5);
+
+  // Names
+  y += 85;
+  ctx.font = `700 34px ${F}`;
+  ctx.fillStyle = '#111827';
+  ctx.fillText(trunc(ctx, p1, spacing - 10), cx - spacing, y);
+  ctx.fillText(trunc(ctx, p2, spacing - 10), cx + spacing, y);
+
+  // ── Big Score ──
+  y += 90;
+  const scoreBoxW = 400;
+  const scoreBoxH = 140;
+  roundedRect(ctx, cx - scoreBoxW / 2, y - scoreBoxH / 2, scoreBoxW, scoreBoxH, 28);
+  ctx.fillStyle = '#f9fafb';
+  ctx.fill();
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.font = `800 100px ${F}`;
+  ctx.fillStyle = w1 > w2 ? '#16a34a' : '#111827';
+  ctx.fillText(`${w1}`, cx - 100, y + 32);
+
+  ctx.font = `300 60px ${F}`;
+  ctx.fillStyle = '#d1d5db';
+  ctx.fillText(':', cx, y + 22);
+
+  ctx.font = `800 100px ${F}`;
+  ctx.fillStyle = w2 > w1 ? '#16a34a' : '#111827';
+  ctx.fillText(`${w2}`, cx + 100, y + 32);
+
+  // Winner
+  y += scoreBoxH / 2 + 45;
+  if (w1 !== w2) {
+    const winner = w1 > w2 ? p1 : p2;
+    ctx.font = `600 30px ${F}`;
+    ctx.fillStyle = '#16a34a';
+    ctx.fillText(`Wygrywa ${winner}`, cx, y);
+  } else if (done.length > 0) {
+    ctx.font = `600 30px ${F}`;
+    ctx.fillStyle = '#d97706';
+    ctx.fillText('Remis', cx, y);
+  }
+
+  // ── Match Results ──
+  y += 55;
+  ctx.fillStyle = '#e5e7eb';
+  ctx.fillRect(PAD + 60, y, W - (PAD + 60) * 2, 1);
+
+  y += 40;
+  ctx.font = `600 22px ${F}`;
+  ctx.fillStyle = '#9ca3af';
+  ctx.fillText(`WYNIKI MECZÓW`, cx, y);
+
+  y += 15;
+  const maxShow = Math.min(done.length, 10);
+
   for (let i = 0; i < maxShow; i++) {
     const m = done[i];
-    wy += 60;
+    y += 62;
 
-    // Row background
-    roundedRect(ctx, 120, wy - 35, W - 240, 50, 12);
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)';
+    roundedRect(ctx, PAD + 20, y - 32, W - (PAD + 20) * 2, 52, 14);
+    ctx.fillStyle = i % 2 === 0 ? '#f9fafb' : '#ffffff';
     ctx.fill();
+    ctx.strokeStyle = '#f3f4f6';
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     const setsStr = m.sets?.length > 0
-      ? m.sets.map(s => `${s[0]}:${s[1]}`).join('   ')
+      ? m.sets.map(s => `${s[0]}:${s[1]}`).join('  ')
       : `${m.score1}:${m.score2}`;
 
-    // Left: winner name with colored dot
-    const isP1Win = m.score1 > m.score2;
-    const winName = isP1Win ? p1 : m.score2 > m.score1 ? p2 : '';
-    const [wc1] = winName ? getColors(winName) : ['#666'];
+    // Match number
+    ctx.font = `500 20px ${F}`;
+    ctx.fillStyle = '#d1d5db';
+    ctx.textAlign = 'left';
+    ctx.fillText(`#${i + 1}`, PAD + 40, y - 3);
 
-    // Colored dot
+    // Winner name
+    const isP1Win = m.score1 > m.score2;
+    const isP2Win = m.score2 > m.score1;
+    const winName = isP1Win ? p1 : isP2Win ? p2 : '';
+
     if (winName) {
+      const [wc] = getColors(winName);
       ctx.beginPath();
-      ctx.arc(150, wy - 10, 6, 0, Math.PI * 2);
-      ctx.fillStyle = wc1;
+      ctx.arc(PAD + 90, y - 7, 5, 0, Math.PI * 2);
+      ctx.fillStyle = wc;
       ctx.fill();
+
+      ctx.font = `600 24px ${F}`;
+      ctx.fillStyle = '#374151';
+      ctx.textAlign = 'left';
+      ctx.fillText(trunc(ctx, winName, 320), PAD + 108, y - 1);
+    } else {
+      ctx.font = `500 24px ${F}`;
+      ctx.fillStyle = '#9ca3af';
+      ctx.textAlign = 'left';
+      ctx.fillText('Remis', PAD + 90, y - 1);
     }
 
-    ctx.font = `600 26px ${F}`;
-    ctx.fillStyle = winName ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)';
-    ctx.textAlign = 'left';
-    ctx.fillText(winName ? trunc(ctx, winName, 250) : 'Remis', 170, wy - 3);
-
-    // Right: score
-    ctx.font = `500 26px ${F}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    // Score
+    ctx.font = `600 24px ${F}`;
+    ctx.fillStyle = '#6b7280';
     ctx.textAlign = 'right';
-    ctx.fillText(setsStr, W - 140, wy - 3);
+    ctx.fillText(setsStr, W - PAD - 40, y - 1);
   }
 
   if (done.length > maxShow) {
-    wy += 50;
+    y += 45;
     ctx.font = `400 22px ${F}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.fillStyle = '#9ca3af';
     ctx.textAlign = 'center';
-    ctx.fillText(`+ ${done.length - maxShow} więcej`, cx, wy);
+    ctx.fillText(`+ ${done.length - maxShow} więcej`, cx, y);
   }
+
+  return y;
 }
 
 // ── Tournament ──
 
-function drawTournament(ctx, { W, F, standings }) {
-  const cx = W / 2;
-  const max = Math.min(standings?.length || 0, 8);
-  const medalColors = ['#fbbf24', '#94a3b8', '#f97316'];
+function drawTournament(ctx, { W, F, cx, PAD, name, date, standings, matches }) {
+  const max = Math.min(standings?.length || 0, 10);
+  if (max === 0) return 200;
 
-  let y = 280;
+  let y = 120;
 
-  // Winner highlight
-  if (max > 0) {
-    const winner = standings[0];
-    drawAvatar(ctx, cx, y, 80, winner.name, F);
+  // Trophy emoji (text rendering)
+  ctx.textAlign = 'center';
+  ctx.font = `400 90px ${F}`;
+  ctx.fillText('\u{1F3C6}', cx, y);
 
-    y += 110;
-    ctx.textAlign = 'center';
-    ctx.font = `700 44px ${F}`;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(trunc(ctx, winner.name, 500), cx, y);
+  // Title
+  y += 65;
+  ctx.font = `800 52px ${F}`;
+  ctx.fillStyle = '#111827';
+  ctx.fillText('Turniej zakończony!', cx, y);
 
+  // Tournament name
+  if (name) {
     y += 45;
-    ctx.font = `600 32px ${F}`;
-    ctx.fillStyle = '#4ade80';
-    ctx.fillText(`${winner.points} punktów`, cx, y);
-
-    y += 15;
-    ctx.font = `400 24px ${F}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText(`${winner.won}W ${winner.draws > 0 ? winner.draws + 'R ' : ''}${winner.lost}L`, cx, y + 25);
+    ctx.font = `500 30px ${F}`;
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText(trunc(ctx, name, W - 200), cx, y);
+  }
+  if (date) {
+    y += 35;
+    ctx.font = `400 26px ${F}`;
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(date, cx, y);
   }
 
-  // Divider
-  y += 70;
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.fillRect(cx - 200, y, 400, 1);
+  // ── Player Cards ──
+  y += 50;
+  const MEDAL = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+  const cardPad = PAD;
+  const cardW = W - cardPad * 2;
+  const cardH = 120;
+  const cardGap = 24;
 
-  // Rest of standings
-  y += 30;
-  for (let i = 1; i < max; i++) {
+  for (let i = 0; i < max; i++) {
     const p = standings[i];
-    y += 75;
+    y += cardH + cardGap;
 
-    const rowPad = 130;
+    const cardY = y - cardH;
+    const [bgColor, borderColor] = i < 3 ? RANK_COLORS[i] : ['#f9fafb', '#e5e7eb'];
 
-    // Row bg
-    roundedRect(ctx, rowPad, y - 40, W - rowPad * 2, 60, 14);
-    ctx.fillStyle = i < 3 ? `${medalColors[i]}10` : 'rgba(255,255,255,0.03)';
+    // Card shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.06)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    roundedRect(ctx, cardPad, cardY, cardW, cardH, 24);
+    ctx.fillStyle = bgColor;
     ctx.fill();
+    ctx.restore();
 
-    // Mini avatar
-    drawAvatar(ctx, rowPad + 30, y - 10, 20, p.name, F);
+    // Card border
+    roundedRect(ctx, cardPad, cardY, cardW, cardH, 24);
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
-    // Rank
-    ctx.font = `700 28px ${F}`;
-    ctx.fillStyle = i < 3 ? medalColors[i] : 'rgba(255,255,255,0.35)';
+    const cardCy = cardY + cardH / 2;
+
+    // Medal emoji or rank number
+    ctx.textAlign = 'center';
+    if (i < 3) {
+      ctx.font = `400 44px ${F}`;
+      ctx.fillText(MEDAL[i], cardPad + 50, cardCy + 14);
+    } else {
+      ctx.font = `700 32px ${F}`;
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillText(`${i + 1}`, cardPad + 50, cardCy + 10);
+    }
+
+    // Avatar
+    drawAvatar(ctx, cardPad + 120, cardCy, 32, p.name, F);
+
+    // Player name
     ctx.textAlign = 'left';
-    ctx.fillText(`${i + 1}`, rowPad + 65, y);
+    ctx.font = `700 34px ${F}`;
+    ctx.fillStyle = '#111827';
+    ctx.fillText(trunc(ctx, p.name, 380), cardPad + 170, cardCy - 8);
 
-    // Name
-    ctx.font = `600 30px ${F}`;
-    ctx.fillStyle = i < 3 ? '#ffffff' : 'rgba(255,255,255,0.6)';
-    ctx.fillText(trunc(ctx, p.name, 350), rowPad + 105, y);
+    // W/L stats
+    ctx.font = `400 24px ${F}`;
+    ctx.fillStyle = '#9ca3af';
+    const stat = `${p.won}W ${p.draws > 0 ? p.draws + 'R ' : ''}${p.lost}L`;
+    ctx.fillText(stat, cardPad + 170, cardCy + 25);
 
     // Points
-    ctx.font = `700 28px ${F}`;
-    ctx.fillStyle = i < 3 ? '#4ade80' : 'rgba(255,255,255,0.4)';
     ctx.textAlign = 'right';
-    ctx.fillText(`${p.points}pkt`, W - rowPad - 15, y);
+    ctx.font = `800 38px ${F}`;
+    ctx.fillStyle = '#16a34a';
+    ctx.fillText(`${p.points}pkt`, W - cardPad - 30, cardCy + 12);
   }
+
+  // ── Match count ──
+  const completedCount = (matches || []).filter(m => m.completed).length;
+  if (completedCount > 0) {
+    y += 30;
+    ctx.textAlign = 'center';
+    ctx.font = `400 24px ${F}`;
+    ctx.fillStyle = '#9ca3af';
+    ctx.fillText(`Rozegrano ${completedCount} ${completedCount === 1 ? 'mecz' : completedCount < 5 ? 'mecze' : 'meczów'}`, cx, y);
+  }
+
+  return y;
 }
 
 // ── Helpers ──

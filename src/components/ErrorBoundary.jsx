@@ -18,7 +18,25 @@ export class ErrorBoundary extends Component {
     });
   }
 
+  isChunkError = () => {
+    const msg = this.state.error?.message || '';
+    return msg.includes('dynamically imported module') ||
+           msg.includes('Loading chunk') ||
+           msg.includes('Failed to fetch');
+  };
+
   handleReset = () => {
+    if (this.isChunkError()) {
+      try {
+        const alreadyReloaded = sessionStorage.getItem('chunk-reload');
+        if (!alreadyReloaded) {
+          sessionStorage.setItem('chunk-reload', '1');
+          window.location.reload();
+          return;
+        }
+        sessionStorage.removeItem('chunk-reload');
+      } catch { /* ignore */ }
+    }
     this.setState({ hasError: false, error: null });
   };
 
@@ -49,14 +67,16 @@ export class ErrorBoundary extends Component {
               Coś poszło nie tak
             </h2>
             <p className="text-gray-500 mb-6 text-sm">
-              Wystąpił nieoczekiwany błąd. Spróbuj ponownie lub zresetuj aplikację.
+              {this.isChunkError()
+                ? 'Aplikacja została zaktualizowana. Odśwież stronę, aby załadować nową wersję.'
+                : 'Wystąpił nieoczekiwany błąd. Spróbuj ponownie lub zresetuj aplikację.'}
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={this.handleReset}
                 className="w-full py-3 px-4 bg-tennis-600 text-white font-semibold rounded-xl hover:bg-tennis-700 transition-colors"
               >
-                Spróbuj ponownie
+                {this.isChunkError() ? 'Odśwież stronę' : 'Spróbuj ponownie'}
               </button>
               <button
                 onClick={this.handleFullReset}

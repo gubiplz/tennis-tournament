@@ -7,6 +7,17 @@ import { DEFAULT_SETTINGS } from '../constants/tournament';
 import { storageService } from '../services/storageService';
 import { isSupabaseConfigured } from '../lib/supabase';
 
+/** Create a changelog entry */
+function logEntry(action, details, extra = {}) {
+  return {
+    id: uuidv4(),
+    timestamp: new Date().toISOString(),
+    action,
+    details,
+    ...extra
+  };
+}
+
 const DEFAULT_PLAYERS = [
   'Hubert',
   'Bartek',
@@ -65,31 +76,13 @@ export const useTournamentStore = create(
         })),
 
       // Start tournament/sparring with player names
-      startTournament: (playerNames, tournamentName, tournamentLocation, tournamentDate, gameType, numberOfRounds) => {
+      startTournament: (playerNames, tournamentName, tournamentLocation, tournamentDate, gameType) => {
         const players = playerNames.map((name) => ({
           id: uuidv4(),
           name: sanitizePlayerName(name)
         }));
 
-        const baseMatches = generateRoundRobin(players);
-
-        // Support multiple rounds: duplicate matches with new IDs for each extra round
-        const rounds = numberOfRounds && numberOfRounds > 1 ? numberOfRounds : 1;
-        let matches;
-        if (rounds > 1) {
-          matches = [];
-          for (let r = 0; r < rounds; r++) {
-            for (const match of baseMatches) {
-              matches.push({
-                ...match,
-                id: matches.length + 1,
-                round: match.round + r * (baseMatches.length > 0 ? Math.max(...baseMatches.map(m => m.round)) : 0)
-              });
-            }
-          }
-        } else {
-          matches = baseMatches;
-        }
+        const matches = generateRoundRobin(players);
 
         const id = uuidv4();
         const createdAt = new Date().toISOString();
@@ -111,12 +104,7 @@ export const useTournamentStore = create(
           matches,
           currentMatchIndex: 0,
           changeLog: [
-            {
-              id: uuidv4(),
-              timestamp: createdAt,
-              action: 'START',
-              details: `Turniej rozpoczęty (${players.length} graczy, ${matches.length} meczów)`
-            }
+            { ...logEntry('START', `Turniej rozpoczęty (${players.length} graczy, ${matches.length} meczów)`), timestamp: createdAt }
           ]
         });
 
@@ -134,6 +122,16 @@ export const useTournamentStore = create(
         if (matchIndex === -1) return;
 
         const match = state.matches[matchIndex];
+
+        // Block edits 24h after tournament completion
+        if (match.completed && state.status === 'completed') {
+          const endEntry = state.changeLog?.find(e => e.details?.includes('zakończony'));
+          if (endEntry) {
+            const age = Date.now() - new Date(endEntry.timestamp).getTime();
+            if (age > 24 * 60 * 60 * 1000) return;
+          }
+        }
+
         const player1 = state.players.find((p) => p.id === match.player1Id);
         const player2 = state.players.find((p) => p.id === match.player2Id);
         const timestamp = new Date().toISOString();
@@ -176,23 +174,19 @@ export const useTournamentStore = create(
           ? sets.map(s => `${s[0]}:${s[1]}`).join(', ')
           : `${score1}:${score2}`;
 
-        const logEntry = {
-          id: uuidv4(),
-          timestamp,
-          action: isEdit ? 'EDIT' : 'SCORE',
-          details: isEdit
+        const scoreLog = logEntry(
+          isEdit ? 'EDIT' : 'SCORE',
+          isEdit
             ? `Mecz #${matchId}: Zmieniono na ${setsStr}`
             : `Mecz #${matchId}: ${player1?.name} vs ${player2?.name} (${setsStr})`,
-          matchId,
-          previousValue: previousScore,
-          newValue: setsStr
-        };
+          { matchId, previousValue: previousScore, newValue: setsStr }
+        );
 
         set({
           matches: updatedMatches,
           currentMatchIndex: nextMatchIndex,
           status: 'active',
-          changeLog: [logEntry, ...state.changeLog]
+          changeLog: [scoreLog, ...state.changeLog]
         });
       },
 
@@ -229,15 +223,9 @@ export const useTournamentStore = create(
             editedAt: null
           };
 
-          logEntries.push({
-            id: uuidv4(),
-            timestamp,
-            action: 'SCORE',
-            details: `Mecz #${currentMatch.id}: ${player1?.name} vs ${player2?.name} (${setsStr})`,
-            matchId: currentMatch.id,
-            previousValue: null,
-            newValue: setsStr
-          });
+          logEntries.push(logEntry('SCORE', `Mecz #${currentMatch.id}: ${player1?.name} vs ${player2?.name} (${setsStr})`, {
+            matchId: currentMatch.id, previousValue: null, newValue: setsStr
+          }));
 
           startIdx = 1;
         }
@@ -266,15 +254,9 @@ export const useTournamentStore = create(
             editedAt: null
           });
 
-          logEntries.push({
-            id: uuidv4(),
-            timestamp,
-            action: 'SCORE',
-            details: `Mecz #${newMatchId}: ${player1?.name} vs ${player2?.name} (${setsStr})`,
-            matchId: newMatchId,
-            previousValue: null,
-            newValue: setsStr
-          });
+          logEntries.push(logEntry('SCORE', `Mecz #${newMatchId}: ${player1?.name} vs ${player2?.name} (${setsStr})`, {
+            matchId: newMatchId, previousValue: null, newValue: setsStr
+          }));
         }
 
         // Point currentMatchIndex to the last match (all are completed, sparring stays active)
@@ -306,7 +288,6 @@ export const useTournamentStore = create(
           round: maxRound + match.round
         }));
 
-        const timestamp = new Date().toISOString();
         const firstNewIndex = state.matches.length;
 
         set({
@@ -314,12 +295,7 @@ export const useTournamentStore = create(
           currentMatchIndex: firstNewIndex,
           status: 'active',
           changeLog: [
-            {
-              id: uuidv4(),
-              timestamp,
-              action: 'SCORE',
-              details: `Dodano rundę (${renumberedMatches.length} meczów)`
-            },
+            logEntry('SCORE', `Dodano rundę (${renumberedMatches.length} meczów)`),
             ...state.changeLog
           ]
         });
@@ -375,12 +351,7 @@ export const useTournamentStore = create(
           currentMatchIndex: nextMatchIndex,
           status: 'active',
           changeLog: [
-            {
-              id: uuidv4(),
-              timestamp,
-              action: 'EDIT',
-              details: `Walkover: ${player.name} wycofany z turnieju`
-            },
+            logEntry('EDIT', `Walkover: ${player.name} wycofany z turnieju`),
             ...state.changeLog
           ]
         });
@@ -393,18 +364,12 @@ export const useTournamentStore = create(
           throw new Error(result.error);
         }
 
-        const timestamp = new Date().toISOString();
         const validState = result.state;
 
         set({
           ...validState,
           changeLog: [
-            {
-              id: uuidv4(),
-              timestamp,
-              action: 'IMPORT',
-              details: 'Stan turnieju zaimportowany'
-            },
+            logEntry('IMPORT', 'Stan turnieju zaimportowany'),
             ...(validState.changeLog || [])
           ]
         });
@@ -496,16 +461,56 @@ export const useTournamentStore = create(
         });
       },
 
+      // Add a single custom match in tournament mode (pick any pair)
+      addCustomMatch: (player1Id, player2Id) => {
+        const state = get();
+        if (state.gameType !== 'tournament' || state.players.length < 3) return;
+        if (player1Id === player2Id) return;
+        if (!state.players.find(p => p.id === player1Id) || !state.players.find(p => p.id === player2Id)) return;
+
+        const lastMatchId = state.matches.length > 0
+          ? Math.max(...state.matches.map(m => m.id))
+          : 0;
+        const maxRound = state.matches.length > 0
+          ? Math.max(...state.matches.map(m => m.round))
+          : 0;
+
+        const newMatch = {
+          id: lastMatchId + 1,
+          round: maxRound + 1,
+          player1Id,
+          player2Id,
+          score1: 0,
+          score2: 0,
+          sets: [],
+          completed: false,
+          completedAt: null,
+          editedAt: null
+        };
+
+        const p1 = state.players.find(p => p.id === player1Id);
+        const p2 = state.players.find(p => p.id === player2Id);
+
+        set({
+          matches: [...state.matches, newMatch],
+          currentMatchIndex: state.matches.length,
+          status: 'active',
+          changeLog: [
+            logEntry('SCORE', `Dodano mecz: ${p1.name} vs ${p2.name}`),
+            ...state.changeLog
+          ]
+        });
+      },
+
       // End tournament/sparring manually
       endTournament: () => {
         const state = get();
         if (state.status === 'completed') return;
-        const timestamp = new Date().toISOString();
         const label = state.gameType === 'sparring' ? 'Sparring' : 'Turniej';
         set({
           status: 'completed',
           changeLog: [
-            { id: uuidv4(), timestamp, action: 'SCORE', details: `${label} zakończony` },
+            logEntry('SCORE', `${label} zakończony`),
             ...state.changeLog
           ]
         });
@@ -560,7 +565,7 @@ export const useTournamentStore = create(
     }),
     {
       name: 'tennis-tournament-storage',
-      version: 4,
+      version: 5,
       migrate: (persistedState, version) => {
         if (version < 4) {
           persistedState.status = 'dashboard';
@@ -568,6 +573,8 @@ export const useTournamentStore = create(
           persistedState.date = persistedState.date || '';
           persistedState.gameType = persistedState.gameType || null;
         }
+        // v4 -> v5: gem-based scoring + default pointsForWin changed to 2.
+        // No data migration needed — existing tournaments keep their own settings.
         return persistedState;
       },
       partialize: (state) => {

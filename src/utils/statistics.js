@@ -1,16 +1,113 @@
+// ---------------------------------------------------------------------------
+// Gem helpers (used by tournament mode)
+// ---------------------------------------------------------------------------
+
 /**
- * Calculates comprehensive player statistics from match results
+ * Extracts total gems for each player from a single match.
+ * If `sets` data is available, sums gems from each set.
+ * Otherwise falls back to score1/score2 as gem counts.
+ */
+function getMatchGems(match) {
+  if (match.sets && match.sets.length > 0) {
+    let g1 = 0, g2 = 0;
+    for (const s of match.sets) {
+      g1 += s[0] || 0;
+      g2 += s[1] || 0;
+    }
+    return [g1, g2];
+  }
+  return [match.score1 || 0, match.score2 || 0];
+}
+
+/**
+ * Creates a canonical pair key (alphabetically sorted) for two player IDs.
+ */
+function pairKey(id1, id2) {
+  return id1 < id2 ? `${id1}|${id2}` : `${id2}|${id1}`;
+}
+
+/**
+ * Calculates gem-based pair results for tournament mode.
+ * Groups all completed matches by player pair and sums gems.
+ *
+ * @param {Array} players - All players
+ * @param {Array} matches - All matches
+ * @returns {Map<string, { p1Id, p2Id, p1Gems, p2Gems, winnerId: string|null, isDraw: boolean }>}
+ *   Key is canonical pairKey. p1Id is always the alphabetically first ID.
+ */
+export function calculateTournamentPairResults(players, matches) {
+  const pairs = new Map();
+
+  for (const match of matches) {
+    if (!match.completed) continue;
+
+    const key = pairKey(match.player1Id, match.player2Id);
+    const [g1, g2] = getMatchGems(match);
+
+    if (!pairs.has(key)) {
+      const isOrdered = match.player1Id < match.player2Id;
+      pairs.set(key, {
+        p1Id: isOrdered ? match.player1Id : match.player2Id,
+        p2Id: isOrdered ? match.player2Id : match.player1Id,
+        p1Gems: 0,
+        p2Gems: 0,
+        winnerId: null,
+        isDraw: true,
+      });
+    }
+
+    const pair = pairs.get(key);
+    const isOrdered = match.player1Id === pair.p1Id;
+    pair.p1Gems += isOrdered ? g1 : g2;
+    pair.p2Gems += isOrdered ? g2 : g1;
+  }
+
+  // Determine winner for each pair
+  for (const pair of pairs.values()) {
+    if (pair.p1Gems > pair.p2Gems) {
+      pair.winnerId = pair.p1Id;
+      pair.isDraw = false;
+    } else if (pair.p2Gems > pair.p1Gems) {
+      pair.winnerId = pair.p2Id;
+      pair.isDraw = false;
+    } else {
+      pair.winnerId = null;
+      pair.isDraw = true;
+    }
+  }
+
+  return pairs;
+}
+
+// ---------------------------------------------------------------------------
+// Player statistics
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculates comprehensive player statistics from match results.
+ *
+ * In tournament mode (gameType='tournament'), uses gem-based pair aggregation:
+ *   won/lost/draws count unique opponents, not individual matches.
+ *   gemsWon/gemsLost/gemsDiff track total gems across all matches.
+ *
+ * In sparring mode (default), uses per-match W/L/D as before.
  *
  * @param {string} playerId - Player ID
  * @param {Array} players - All players
  * @param {Array} matches - All matches
  * @param {Object} settings - Tournament settings (points for win/draw/loss)
+ * @param {string} [gameType] - 'tournament' | 'sparring' | undefined
  * @returns {Object} - Player statistics
  */
-export function calculatePlayerStats(playerId, players, matches, settings) {
+export function calculatePlayerStats(playerId, players, matches, settings, gameType) {
   const player = players.find(p => p.id === playerId);
   if (!player) return null;
 
+  if (gameType === 'tournament') {
+    return calculateTournamentPlayerStats(playerId, player, players, matches, settings);
+  }
+
+  // Sparring / default: per-match W/L/D (unchanged)
   const playerMatches = matches.filter(
     m => (m.player1Id === playerId || m.player2Id === playerId) && m.completed
   );
@@ -54,28 +151,148 @@ export function calculatePlayerStats(playerId, players, matches, settings) {
     playerId,
     name: player.name,
     played,
+    matchesPlayed: played,
     won,
     lost,
     draws,
     setsWon,
     setsLost,
     setsDiff: setsWon - setsLost,
+    gemsWon: setsWon,
+    gemsLost: setsLost,
+    gemsDiff: setsWon - setsLost,
     points,
     winRate,
-    form: form.slice(-5) // Last 5 matches
+    form: form.slice(-5)
   };
 }
 
 /**
- * Calculates head-to-head record between a player and all opponents
+ * Tournament-specific stats: gem-based pair aggregation.
+ * A player's won/lost/draws count unique opponents (not matches).
+ */
+function calculateTournamentPlayerStats(playerId, player, players, matches, settings) {
+  const pairResults = calculateTournamentPairResults(players, matches);
+
+  let won = 0;
+  let lost = 0;
+  let draws = 0;
+  let gemsWon = 0;
+  let gemsLost = 0;
+  let setsWon = 0;
+  let setsLost = 0;
+  let matchesPlayed = 0;
+  const form = []; // opponent results ordered by most-recent match
+
+  // Collect per-opponent results with timestamp of most recent match
+  const opponentResults = [];
+
+  for (const opponent of players) {
+    if (opponent.id === playerId) continue;
+
+    const key = pairKey(playerId, opponent.id);
+    const pair = pairResults.get(key);
+    if (!pair) continue;
+
+    const myGems = pair.p1Id === playerId ? pair.p1Gems : pair.p2Gems;
+    const oppGems = pair.p1Id === playerId ? pair.p2Gems : pair.p1Gems;
+
+    gemsWon += myGems;
+    gemsLost += oppGems;
+
+    let result;
+    if (pair.winnerId === playerId) {
+      won++;
+      result = 'W';
+    } else if (pair.isDraw) {
+      draws++;
+      result = 'D';
+    } else {
+      lost++;
+      result = 'L';
+    }
+
+    // Find most recent completed match against this opponent for ordering
+    let latestTime = 0;
+    const h2hMatches = matches.filter(m =>
+      m.completed &&
+      ((m.player1Id === playerId && m.player2Id === opponent.id) ||
+       (m.player2Id === playerId && m.player1Id === opponent.id))
+    );
+
+    for (const m of h2hMatches) {
+      const isP1 = m.player1Id === playerId;
+      setsWon += isP1 ? m.score1 : m.score2;
+      setsLost += isP1 ? m.score2 : m.score1;
+    }
+
+    matchesPlayed += h2hMatches.length;
+
+    for (const m of h2hMatches) {
+      if (m.completedAt) {
+        const t = new Date(m.completedAt).getTime();
+        if (t > latestTime) latestTime = t;
+      }
+    }
+
+    opponentResults.push({ result, latestTime });
+  }
+
+  // Build form from most-recent opponent results
+  opponentResults.sort((a, b) => b.latestTime - a.latestTime);
+  for (const r of opponentResults) {
+    form.push(r.result);
+  }
+
+  // Avoid double-counting setsWon/setsLost (they were accumulated per-opponent above)
+  // They are correct since we iterate each opponent once and sum their h2h matches.
+
+  const played = won + lost + draws; // number of opponents
+  const points =
+    won * settings.pointsForWin +
+    draws * settings.pointsForDraw +
+    lost * settings.pointsForLoss;
+  const winRate = played > 0 ? Math.round((won / played) * 100) : 0;
+
+  return {
+    playerId,
+    name: player.name,
+    played,
+    matchesPlayed,
+    won,
+    lost,
+    draws,
+    setsWon,
+    setsLost,
+    setsDiff: setsWon - setsLost,
+    gemsWon,
+    gemsLost,
+    gemsDiff: gemsWon - gemsLost,
+    points,
+    winRate,
+    form: form.slice(-5)
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Head-to-head
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculates head-to-head record between a player and all opponents.
+ * In tournament mode, adds total gem counts per pair.
  *
  * @param {string} playerId - Player ID
  * @param {Array} players - All players
  * @param {Array} matches - All matches
+ * @param {string} [gameType] - 'tournament' | 'sparring' | undefined
  * @returns {Array} - Head-to-head records
  */
-export function calculateHeadToHead(playerId, players, matches) {
+export function calculateHeadToHead(playerId, players, matches, gameType) {
   const records = [];
+  const pairResults = gameType === 'tournament'
+    ? calculateTournamentPairResults(players, matches)
+    : null;
 
   players.forEach(opponent => {
     if (opponent.id === playerId) return;
@@ -96,6 +313,9 @@ export function calculateHeadToHead(playerId, players, matches) {
         draws: 0,
         setsWon: 0,
         setsLost: 0,
+        totalGemsPlayer: 0,
+        totalGemsOpponent: 0,
+        gemResult: null,
         matches: [],
         played: false
       });
@@ -133,6 +353,23 @@ export function calculateHeadToHead(playerId, players, matches) {
       });
     });
 
+    // Gem totals from pair results (tournament mode)
+    let totalGemsPlayer = 0;
+    let totalGemsOpponent = 0;
+    let gemResult = null;
+
+    if (pairResults) {
+      const key = pairKey(playerId, opponent.id);
+      const pair = pairResults.get(key);
+      if (pair) {
+        totalGemsPlayer = pair.p1Id === playerId ? pair.p1Gems : pair.p2Gems;
+        totalGemsOpponent = pair.p1Id === playerId ? pair.p2Gems : pair.p1Gems;
+        if (pair.winnerId === playerId) gemResult = 'win';
+        else if (pair.isDraw) gemResult = 'draw';
+        else gemResult = 'loss';
+      }
+    }
+
     records.push({
       opponentId: opponent.id,
       opponentName: opponent.name,
@@ -141,6 +378,9 @@ export function calculateHeadToHead(playerId, players, matches) {
       draws,
       setsWon,
       setsLost,
+      totalGemsPlayer,
+      totalGemsOpponent,
+      gemResult,
       matches: matchResults,
       played: true
     });
@@ -182,14 +422,25 @@ export function getRemainingMatches(playerId, players, matches) {
  * @param {Array} players - All players
  * @param {Array} matches - All matches
  * @param {Object} settings - Tournament settings
+ * @param {string} [gameType] - 'tournament' | 'sparring' | undefined
  * @returns {Array} - Sorted standings
  */
-export function calculateStandings(players, matches, settings) {
+export function calculateStandings(players, matches, settings, gameType) {
   const stats = players.map(player =>
-    calculatePlayerStats(player.id, players, matches, settings)
+    calculatePlayerStats(player.id, players, matches, settings, gameType)
   );
 
-  // Sort by: points DESC, set difference DESC, sets won DESC, wins DESC
+  if (gameType === 'tournament') {
+    // Tournament: points DESC, gem diff DESC, gems won DESC, wins DESC
+    return stats.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.gemsDiff !== a.gemsDiff) return b.gemsDiff - a.gemsDiff;
+      if (b.gemsWon !== a.gemsWon) return b.gemsWon - a.gemsWon;
+      return b.won - a.won;
+    });
+  }
+
+  // Sparring / default: points DESC, set difference DESC, sets won DESC, wins DESC
   return stats.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.setsDiff !== a.setsDiff) return b.setsDiff - a.setsDiff;

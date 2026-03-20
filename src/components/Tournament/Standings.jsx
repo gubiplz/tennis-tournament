@@ -97,7 +97,7 @@ function RankBadge({ rank, isCompleted, size = 'normal' }) {
 }
 
 // Mobile card component for each player
-function PlayerCard({ player, rank, isCompleted, onClick, animationDelay }) {
+function PlayerCard({ player, rank, isCompleted, isTournament, onClick, animationDelay }) {
   const getCardStyle = () => {
     if (!isCompleted) return 'bg-white border-gray-200';
     if (rank === 1) return 'bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-300 shadow-lg shadow-yellow-100';
@@ -123,7 +123,12 @@ function PlayerCard({ player, rank, isCompleted, onClick, animationDelay }) {
           <RankBadge rank={rank} isCompleted={isCompleted} size="large" />
           <div>
             <h3 className="font-bold text-gray-900 text-lg">{player.name}</h3>
-            <span className="text-sm text-gray-600">{player.played} {pluralize(player.played, 'mecz', 'mecze', 'meczów')}</span>
+            <span className="text-sm text-gray-600">
+              {isTournament
+                ? `${player.played} ${pluralize(player.played, 'rywal', 'rywali', 'rywali')}`
+                : `${player.played} ${pluralize(player.played, 'mecz', 'mecze', 'meczów')}`
+              }
+            </span>
           </div>
         </div>
         <div className={`
@@ -152,12 +157,14 @@ function PlayerCard({ player, rank, isCompleted, onClick, animationDelay }) {
           <span className="text-red-700 font-medium text-xs">Przegr.</span>
         </div>
         <div className="flex flex-col items-center justify-center py-2 bg-gray-50 rounded-xl">
-          <span className="font-bold text-gray-700">{player.setsWon}:{player.setsLost}</span>
+          <span className="font-bold text-gray-700">
+            {isTournament ? `${player.gemsWon}:${player.gemsLost}` : `${player.setsWon}:${player.setsLost}`}
+          </span>
           <span className={`
             text-xs font-bold px-1.5 py-0.5 rounded mt-0.5
-            ${player.setsDiff > 0 ? 'bg-green-200 text-green-800' : player.setsDiff < 0 ? 'bg-red-200 text-red-800' : 'bg-gray-200 text-gray-700'}
+            ${(isTournament ? player.gemsDiff : player.setsDiff) > 0 ? 'bg-green-200 text-green-800' : (isTournament ? player.gemsDiff : player.setsDiff) < 0 ? 'bg-red-200 text-red-800' : 'bg-gray-200 text-gray-700'}
           `}>
-            {player.setsDiff > 0 ? '+' : ''}{player.setsDiff}
+            {(isTournament ? player.gemsDiff : player.setsDiff) > 0 ? '+' : ''}{isTournament ? player.gemsDiff : player.setsDiff}
           </span>
         </div>
       </div>
@@ -166,12 +173,13 @@ function PlayerCard({ player, rank, isCompleted, onClick, animationDelay }) {
 }
 
 export function Standings({ onPlayerClick }) {
-  const { players, matches, settings, status } = useTournamentStore();
+  const { players, matches, settings, status, gameType } = useTournamentStore();
   const [animateIn, setAnimateIn] = useState(false);
+  const isTournament = gameType === 'tournament';
 
   const standings = useMemo(
-    () => calculateStandings(players, matches, settings),
-    [players, matches, settings]
+    () => calculateStandings(players, matches, settings, gameType),
+    [players, matches, settings, gameType]
   );
   const isCompleted = status === 'completed';
   const completedCount = useMemo(() => matches.filter((m) => m.completed).length, [matches]);
@@ -222,6 +230,7 @@ export function Standings({ onPlayerClick }) {
                 player={player}
                 rank={index + 1}
                 isCompleted={isCompleted}
+                isTournament={isTournament}
                 onClick={() => onPlayerClick?.(player.playerId)}
                 animationDelay={index * 0.05}
               />
@@ -239,7 +248,7 @@ export function Standings({ onPlayerClick }) {
             <div className="text-center" role="columnheader">Wygr.</div>
             <div className="text-center" role="columnheader">Remisy</div>
             <div className="text-center" role="columnheader">Przegr.</div>
-            <div className="text-center" role="columnheader">Sety</div>
+            <div className="text-center" role="columnheader">{isTournament ? 'Gemy' : 'Sety'}</div>
             <div className="text-center" role="columnheader">Punkty</div>
           </div>
 
@@ -300,22 +309,22 @@ export function Standings({ onPlayerClick }) {
                   </span>
                 </div>
 
-                {/* Sets */}
+                {/* Sets / Gems */}
                 <div className="flex items-center justify-center" role="cell">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-700 font-semibold text-lg">
-                      {player.setsWon}:{player.setsLost}
+                      {isTournament ? `${player.gemsWon}:${player.gemsLost}` : `${player.setsWon}:${player.setsLost}`}
                     </span>
                     <span className={`
                       text-sm font-bold px-2 py-1 rounded-lg
-                      ${player.setsDiff > 0
+                      ${(isTournament ? player.gemsDiff : player.setsDiff) > 0
                         ? 'bg-green-100 text-green-800'
-                        : player.setsDiff < 0
+                        : (isTournament ? player.gemsDiff : player.setsDiff) < 0
                           ? 'bg-red-100 text-red-800'
                           : 'bg-gray-100 text-gray-600'
                       }
                     `}>
-                      {player.setsDiff > 0 ? '+' : ''}{player.setsDiff}
+                      {(isTournament ? player.gemsDiff : player.setsDiff) > 0 ? '+' : ''}{isTournament ? player.gemsDiff : player.setsDiff}
                     </span>
                   </div>
                 </div>

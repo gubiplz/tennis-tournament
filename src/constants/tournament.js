@@ -7,7 +7,7 @@ export const RECENT_FORM_LENGTH = 5;
 export const CHANGELOG_PREVIEW_COUNT = 10;
 
 export const DEFAULT_SETTINGS = {
-  pointsForWin: 3,
+  pointsForWin: 2,
   pointsForDraw: 1,
   pointsForLoss: 0,
   matchDuration: 15,

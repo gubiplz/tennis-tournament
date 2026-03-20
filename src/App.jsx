@@ -17,6 +17,9 @@ const TournamentLoader = lazy(() =>
 const TournamentView = lazy(() =>
   import('./components/Tournament/TournamentView').then((m) => ({ default: m.TournamentView }))
 );
+const GlobalPlayerProfile = lazy(() =>
+  import('./components/Dashboard/GlobalPlayerProfile').then((m) => ({ default: m.GlobalPlayerProfile }))
+);
 
 function LoadingSpinner() {
   return (
@@ -90,6 +93,7 @@ function App() {
     <Suspense fallback={<LoadingSpinner />}>
       <Routes>
         <Route path="/" element={<TournamentList />} />
+        <Route path="/gracz/:playerName" element={<GlobalPlayerProfile />} />
         <Route path="/nowy/sparing" element={<SparringSetup />} />
         <Route path="/nowy/turniej" element={<TournamentSetup />} />
         <Route

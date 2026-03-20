@@ -100,7 +100,7 @@ function polishMatchesLabel(count) {
 
 // ----------- MonthlyStatsSection -----------
 
-function MonthlyStatsSection({ tournaments }) {
+function MonthlyStatsSection({ tournaments, onPlayerClick }) {
   const availableMonths = useMemo(() => getAvailableMonths(tournaments), [tournaments]);
   const [monthIndex, setMonthIndex] = useState(0);
 
@@ -176,20 +176,26 @@ function MonthlyStatsSection({ tournaments }) {
               <span className="text-center">W-L</span>
             </div>
             {stats.map((p, i) => (
-              <div
+              <button
                 key={p.name}
-                className={`grid grid-cols-[1fr_50px_70px] gap-x-2 px-4 py-2.5 items-center ${
+                onClick={() => onPlayerClick(p.name)}
+                className={`w-full grid grid-cols-[1fr_50px_70px] gap-x-2 px-4 py-2.5 items-center hover:bg-white/5 transition-colors ${
                   i < stats.length - 1 ? 'border-b border-white/5' : ''
                 }`}
               >
-                <span className="text-white font-medium text-sm truncate">{p.name}</span>
+                <span className="text-white font-medium text-sm truncate text-left flex items-center gap-2">
+                  {p.name}
+                  <svg className="w-3 h-3 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
                 <span className="text-white text-sm text-center font-bold">{p.played}</span>
                 <span className="text-sm text-center">
                   <span className="text-green-300">{p.won}</span>
                   <span className="text-white/40">-</span>
                   <span className="text-red-300">{p.lost}</span>
                 </span>
-              </div>
+              </button>
             ))}
           </>
         )}
@@ -366,7 +372,10 @@ export function TournamentList() {
 
         {/* Monthly stats */}
         {!loading && tournaments.length > 0 && (
-          <MonthlyStatsSection tournaments={tournaments} />
+          <MonthlyStatsSection
+            tournaments={tournaments}
+            onPlayerClick={(name) => navigate(`/gracz/${encodeURIComponent(name)}`)}
+          />
         )}
 
         {/* Loading -- skeleton cards */}
